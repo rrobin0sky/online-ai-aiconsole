@@ -6,7 +6,7 @@
   <p>集成 SSH / 串口 / VNC / FTP 多协议 • 内置 AI 极速根因诊断 • Touch ID 生物防护</p>
 
   <p>
-    <a href="https://github.com"><img src="https://img.shields.io/badge/Platform-macOS%2014.0%2B-blue?logo=apple" alt="macOS 14.0+"></a>
+    <a href="https://github.com/rrobin0sky/online-ai-aiconsole"><img src="https://img.shields.io/badge/Platform-macOS%2014.0%2B-blue?logo=apple" alt="macOS 14.0+"></a>
     <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-5.9%2B-F05138?logo=swift&logoColor=white" alt="Swift 5.9+"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
     <a href="https://aiconsole.bin0sky.tech"><img src="https://img.shields.io/badge/Web-aiconsole.bin0sky.tech-purple" alt="Website"></a>
