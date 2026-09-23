@@ -1,0 +1,25 @@
+# macOS System Files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Swift Package Manager & Build artifacts
+.build/
+.swiftpm/
+Package.resolved
+DerivedData/
+
+# Output Applications & Packages
+*.app/
+dist/
+*.dmg
+*.zip
+
+# Local scratch and environment notes
+*.txt
+*.local
+.env
+.env.*

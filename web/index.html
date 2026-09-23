@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIConsole - 专为 macOS 打造的新一代 AI 智能终端与运维工作台</title>
+  <meta name="description" content="原生 Swift 打造的现代化极客终端。融合 SSH、串口、VNC、FTP 多协议，内置 AI 故障根因诊断与 Touch ID 生物安全守护。">
+  <link rel="icon" type="image/png" href="AppIcon.png">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['"Fira Code"', 'SFMono-Regular', 'Menlo', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              400: '#a78bfa',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+            },
+            dark: {
+              bg: '#090a0f',
+              surface: '#12141d',
+              border: '#1f2438',
+              card: 'rgba(18, 20, 29, 0.75)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      background-color: #08090d;
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+    
+    /* Antigravity Glassmorphism */
+    .glass-card {
+      background: rgba(16, 18, 27, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .glass-nav {
+      background: rgba(8, 9, 13, 0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .glass-pill {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Glow highlights */
+    .glow-purple {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .glow-cyan {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, rgba(6, 182, 212, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Subtle grid pattern */
+    .bg-grid {
+      background-size: 40px 40px;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090a0f;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #252a3d;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3b425d;
+    }
+  </style>
+</head>
+<body class="bg-grid relative selection:bg-brand-500 selection:text-white">
+
+  <!-- Background Ambient Glows -->
+  <div class="glow-purple -top-40 left-1/2 -translate-x-1/2"></div>
+  <div class="glow-cyan top-[600px] -left-40"></div>
+
+  <!-- Navigation Bar -->
+  <header class="fixed top-0 left-0 right-0 z-50 glass-nav transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-6 h-18 py-3.5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="AppIcon.png" alt="AIConsole" class="w-10 h-10 rounded-xl shadow-lg shadow-brand-500/20 ring-1 ring-white/10">
+        <div>
+          <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">AIConsole</span>
+          <span class="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30">v1.2</span>
+        </div>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+        <a href="#features" class="hover:text-white transition">核心特性</a>
+        <a href="#protocols" class="hover:text-white transition">协议矩阵</a>
+        <a href="#ai-assistant" class="hover:text-white transition">AI Copilot</a>
+        <a href="#security" class="hover:text-white transition">安全防护</a>
+        <a href="#faq" class="hover:text-white transition">常见问题</a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <a id="navGithubBtn" href="https://github.com" target="_blank" class="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg glass-pill text-xs font-semibold text-slate-200 hover:text-white hover:bg-white/10 transition">
+          <i data-lucide="github" class="w-4 h-4"></i>
+          <span>GitHub</span>
+        </a>
+        <a href="#download" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-brand-600/30 transition-all hover:scale-[1.02]">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          <span>立即下载</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="relative pt-36 pb-20 md:pt-44 md:pb-28 max-w-7xl mx-auto px-6 text-center z-10">
+    <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full glass-pill text-xs font-medium text-brand-300 mb-8 animate-fade-in border border-brand-500/30">
+      <span class="flex h-2 w-2 rounded-full bg-brand-400 animate-pulse"></span>
+      专为 macOS 研发的高性能原生 AI 终端
+    </div>
+
+    <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-[1.15]">
+      让系统排障与远程运维，<br>
+      <span class="bg-gradient-to-r from-brand-400 via-indigo-300 to-cyan-400 bg-clip-text text-transparent">全速进入 AI 时代</span>
+    </h1>
+
+    <p class="mt-6 text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto font-normal leading-relaxed">
+      告别繁复切换与错误盲猜。以 Swift 与 GPU 原生加速驱动，集成了 <span class="text-slate-200 font-medium">SSH、串口、VNC、FTP</span> 全链路协议，配备大模型根因诊断卡片与 Touch ID 生物防护。
+    </p>
+
+    <!-- Call to Actions -->
+    <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+      <a id="heroDmgBtn" href="https://github.com" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white font-semibold text-base shadow-xl shadow-brand-600/30 transition-all transform hover:-translate-y-0.5">
+        <i data-lucide="apple" class="w-5 h-5"></i>
+        <span>下载 macOS 版 (.dmg)</span>
+        <span class="text-xs py-0.5 px-2 bg-black/30 rounded-md text-slate-300">Apple Silicon / Intel</span>
+      </a>
+
+      <a id="heroZipBtn" href="https://github.com" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-4 rounded-xl glass-card text-slate-300 hover:text-white hover:bg-white/10 font-semibold text-base transition-all">
+        <i data-lucide="archive" class="w-5 h-5 text-slate-400"></i>
+        <span>下载 ZIP 绿色包</span>
+      </a>
+    </div>
+
+    <!-- Requirements & Stats -->
+    <div class="mt-6 flex items-center justify-center gap-6 text-xs text-slate-500 font-mono">
+      <span class="inline-flex items-center gap-1.5"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-400"></i> 支持 macOS 14.0+</span>
+      <span class="inline-flex items-center gap-1.5"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-brand-400"></i> 本地 Keychain 隔离</span>
+      <span class="inline-flex items-center gap-1.5"><i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i> 毫秒级原生启动</span>
+    </div>
+
+    <!-- Interactive Workspace Preview -->
+    <div class="mt-14 max-w-5xl mx-auto rounded-2xl glass-card p-2 md:p-3 shadow-2xl relative group">
+      <!-- Window Controls -->
+      <div class="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-slate-900/60 rounded-t-xl">
+        <div class="flex items-center gap-2">
+          <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+          <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+          <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+          <span class="ml-3 text-xs font-mono text-slate-400">AIConsole — prod-node-01 (10.0.1.48:22)</span>
+        </div>
+        <div class="flex items-center gap-3 text-xs text-slate-500">
+          <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono">● SSH Connected</span>
+          <span class="px-2 py-0.5 rounded bg-brand-500/10 text-brand-400 font-mono">AI Copilot: 极速模式</span>
+        </div>
+      </div>
+
+      <!-- App Interface Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 min-h-[440px] bg-[#0c0e17] rounded-b-xl overflow-hidden font-mono text-xs">
+        
+        <!-- Left Sidebar Mockup -->
+        <div class="hidden md:flex lg:col-span-3 flex-col border-r border-white/5 bg-[#090b12] p-4 text-left">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">会话列表 Sessions</div>
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-brand-600/20 text-white border border-brand-500/30">
+              <span class="flex items-center gap-2"><i data-lucide="server" class="w-3.5 h-3.5 text-brand-400"></i> prod-node-01</span>
+              <span class="text-[10px] text-slate-400">SSH</span>
+            </div>
+            <div class="flex items-center justify-between px-3 py-2 rounded-lg text-slate-400 hover:bg-white/5 transition">
+              <span class="flex items-center gap-2"><i data-lucide="cpu" class="w-3.5 h-3.5 text-amber-400"></i> Switch-Core-48</span>
+              <span class="text-[10px] text-slate-500">串口</span>
+            </div>
+            <div class="flex items-center justify-between px-3 py-2 rounded-lg text-slate-400 hover:bg-white/5 transition">
+              <span class="flex items-center gap-2"><i data-lucide="monitor" class="w-3.5 h-3.5 text-cyan-400"></i> GPU-Server-02</span>
+              <span class="text-[10px] text-slate-500">VNC</span>
+            </div>
+            <div class="flex items-center justify-between px-3 py-2 rounded-lg text-slate-400 hover:bg-white/5 transition">
+              <span class="flex items-center gap-2"><i data-lucide="folder-git-2" class="w-3.5 h-3.5 text-blue-400"></i> Backup-Storage</span>
+              <span class="text-[10px] text-slate-500">FTP</span>
+            </div>
+          </div>
+
+          <div class="mt-auto pt-4 border-t border-white/5 text-[11px] text-slate-500 flex items-center justify-between">
+            <span class="flex items-center gap-1.5"><i data-lucide="fingerprint" class="w-3.5 h-3.5 text-purple-400"></i> Touch ID 已保护</span>
+            <i data-lucide="settings" class="w-3.5 h-3.5 text-slate-600"></i>
+          </div>
+        </div>
+
+        <!-- Center: Terminal Output -->
+        <div class="lg:col-span-5 p-5 text-left bg-[#0c0e17] overflow-y-auto space-y-2 border-r border-white/5">
+          <div class="text-slate-500">Last login: Wed Sep 23 22:30:12 on ttys003</div>
+          <div class="text-slate-300"><span class="text-emerald-400">root@prod-node-01</span>:<span class="text-cyan-400">~</span>$ systemctl status nginx.service</div>
+          <div class="text-red-400">● nginx.service - A high performance web server</div>
+          <div class="text-slate-400 pl-3">Active: <span class="text-red-400 font-bold">failed</span> (Result: exit-code)</div>
+          <div class="text-slate-400 pl-3">Process: 4192 ExecStart=/usr/sbin/nginx (code=exited, status=1/FAILURE)</div>
+          <div class="text-amber-300/90 pl-3">nginx: [emerg] bind() to 0.0.0.0:443 failed (98: Address already in use)</div>
+          <div class="text-slate-300 mt-2"><span class="text-emerald-400">root@prod-node-01</span>:<span class="text-cyan-400">~</span>$ <span class="inline-block w-2 h-4 bg-slate-400 align-middle animate-pulse"></span></div>
+          
+          <div class="mt-4 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-[11px] flex items-start gap-2">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 shrink-0 mt-0.5"></i>
+            <div>
+              <div class="font-semibold text-red-300">捕获到端口冲突故障</div>
+              <div class="text-slate-400 text-[10px]">AI Copilot 已自动提取终端堆栈并完成排障方案生成 ➔</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: AI Copilot Assistant -->
+        <div class="lg:col-span-4 p-4 text-left bg-[#10131f] flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-3 border-b border-white/5">
+              <span class="flex items-center gap-1.5 font-bold text-slate-200">
+                <i data-lucide="sparkles" class="w-4 h-4 text-brand-400"></i> AI 排障诊断
+              </span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-brand-500/20 text-brand-300">耗时 0.42s</span>
+            </div>
+
+            <!-- AI Diagnosis Card -->
+            <div class="mt-3 space-y-3">
+              <div class="p-3 rounded-lg bg-black/40 border border-white/5">
+                <div class="text-xs font-semibold text-brand-300 flex items-center gap-1.5">
+                  <i data-lucide="target" class="w-3.5 h-3.5"></i> 根因定位
+                </div>
+                <div class="text-slate-300 text-[11px] mt-1 leading-relaxed">
+                  端口 <code class="text-cyan-300">443</code> 被遗留进程占用导致 Nginx 启动崩溃。
+                </div>
+              </div>
+
+              <div class="p-3 rounded-lg bg-black/40 border border-white/5">
+                <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                  <i data-lucide="terminal" class="w-3.5 h-3.5"></i> 极速修复命令
+                </div>
+                <pre class="mt-1.5 p-2 rounded bg-slate-950 text-slate-300 text-[10px] font-mono leading-tight"><code># 查看占用并释放
+fuser -k 443/tcp
+systemctl restart nginx</code></pre>
+                <div class="mt-2 flex items-center gap-2">
+                  <button class="px-2.5 py-1 rounded bg-brand-600 hover:bg-brand-500 text-white text-[10px] font-sans font-semibold transition flex items-center gap-1">
+                    <i data-lucide="play" class="w-3 h-3"></i> 一键回填终端
+                  </button>
+                  <button class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-400 text-[10px] transition">
+                    复制
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-[10px] text-slate-500 text-center pt-2">
+            支持 DeepSeek / OpenAI / Claude / 本地 Ollama
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="py-24 max-w-7xl mx-auto px-6 relative z-10 border-t border-white/5">
+    <div class="text-center max-w-3xl mx-auto mb-16">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-brand-400 mb-3">Core Highlights</h2>
+      <p class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">为专业工程师量身定制的四大杀手级特性</p>
+      <p class="mt-4 text-slate-400 text-base">兼顾极客对极速响应的苛求，与现代智能辅助带来的效率跃升。</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <!-- Feature 1 -->
+      <div class="glass-card p-6 rounded-2xl hover:border-brand-500/40 transition-all duration-300 hover:-translate-y-1">
+        <div class="w-12 h-12 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400 mb-5">
+          <i data-lucide="network" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">五大协议原生全集成</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          一个窗口管理 SSH 远程主机、Telnet、USB 硬件串口、VNC 桌面图形会话以及 FTP 双向文件传输，告别安装十几个杂乱客户端。
+        </p>
+      </div>
+
+      <!-- Feature 2 -->
+      <div class="glass-card p-6 rounded-2xl hover:border-indigo-500/40 transition-all duration-300 hover:-translate-y-1">
+        <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-5">
+          <i data-lucide="bot" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">AI 根因智能诊断</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          独创三段式诊断卡片（根因定位、极速修复命令、风险提示）。自动捕捉错误堆栈，生成可一键填入终端的排障指令。
+        </p>
+      </div>
+
+      <!-- Feature 3 -->
+      <div class="glass-card p-6 rounded-2xl hover:border-cyan-500/40 transition-all duration-300 hover:-translate-y-1">
+        <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-5">
+          <i data-lucide="fingerprint" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">Touch ID & 高危拦截</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          敏感生产服务器支持指纹与 Apple Watch 解锁；内置高危命令检测拦截引擎，彻底避免误删库、误格式化磁盘等灾难故障。
+        </p>
+      </div>
+
+      <!-- Feature 4 -->
+      <div class="glass-card p-6 rounded-2xl hover:border-purple-500/40 transition-all duration-300 hover:-translate-y-1">
+        <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-5">
+          <i data-lucide="layout-grid" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">分屏工作区与极客美学</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          基于 GPU 渲染的毫秒级终端，支持无缝水平与垂直分屏、命令历史审计回溯、常用代码片段管理以及丰富的主题配色定制。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Protocol Matrix Section -->
+  <section id="protocols" class="py-20 max-w-7xl mx-auto px-6 relative z-10 border-t border-white/5">
+    <div class="text-center max-w-3xl mx-auto mb-16">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3">Protocol Matrix</h2>
+      <p class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">打通服务器、交换机与硬件板卡的统一枢纽</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Protocol 1 -->
+      <div class="glass-card p-6 rounded-2xl">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400"><i data-lucide="shield" class="w-5 h-5"></i></span>
+          <div>
+            <h4 class="font-bold text-white text-base">SSH & Telnet 远程主机</h4>
+            <span class="text-xs text-slate-400">支持私钥、密码与自定义端口</span>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          基于 SwiftTerm 纯原生伪终端实现，无缝兼容 xterm-256color，支持完整 UTF-8 中文显示、快捷键穿透与会话保活心跳。
+        </p>
+      </div>
+
+      <!-- Protocol 2 -->
+      <div class="glass-card p-6 rounded-2xl">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="p-2.5 rounded-lg bg-amber-500/10 text-amber-400"><i data-lucide="cpu" class="w-5 h-5"></i></span>
+          <div>
+            <h4 class="font-bold text-white text-base">USB 硬件串口直连 (Serial)</h4>
+            <span class="text-xs text-slate-400">内置 IOKit 硬件设备驱动监听</span>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          即插即用识别 CH340、CP2102、FTDI 等串口芯片，自由设置波特率（9600-115200）、数据位与流控，专为网络硬件及嵌入式调校。
+        </p>
+      </div>
+
+      <!-- Protocol 3 -->
+      <div class="glass-card p-6 rounded-2xl">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="p-2.5 rounded-lg bg-blue-500/10 text-blue-400"><i data-lucide="monitor-dot" class="w-5 h-5"></i></span>
+          <div>
+            <h4 class="font-bold text-white text-base">VNC 远程桌面 & FTP</h4>
+            <span class="text-xs text-slate-400">图形与文件互通</span>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          无需额外切换软件，直接内嵌 VNC 远程屏幕管理与 FTP 远程文件目录浏览，上传、下载、排障一站式闭环搞定。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download & Releases Section -->
+  <section id="download" class="py-24 max-w-5xl mx-auto px-6 text-center relative z-10">
+    <div class="glass-card p-10 md:p-16 rounded-3xl relative overflow-hidden border border-brand-500/30">
+      <div class="glow-purple -top-32 left-1/2 -translate-x-1/2 opacity-50"></div>
+      
+      <img src="AppIcon.png" alt="AIConsole" class="w-20 h-20 mx-auto mb-6 rounded-2xl shadow-xl shadow-brand-500/30 ring-1 ring-white/20">
+
+      <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+        立即获取 AIConsole for Mac
+      </h2>
+      <p class="mt-4 text-slate-400 max-w-xl mx-auto text-base">
+        基于 Swift 5.9 原生编译，极速、安全、无臃肿运行库，开箱即用。
+      </p>
+
+      <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a id="ctaDmgBtn" href="https://github.com" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white font-bold text-base shadow-xl shadow-brand-600/30 transition-all hover:scale-[1.02]">
+          <i data-lucide="download" class="w-5 h-5"></i>
+          <span>下载 DMG 安装镜像 (v1.2.0)</span>
+        </a>
+
+        <a id="ctaZipBtn" href="https://github.com" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl glass-pill text-slate-300 hover:text-white font-semibold text-base transition">
+          <i data-lucide="file-archive" class="w-5 h-5 text-slate-400"></i>
+          <span>免安装 ZIP 包</span>
+        </a>
+      </div>
+
+      <div class="mt-6 text-xs text-slate-500 flex items-center justify-center gap-4">
+        <span>系统兼容：macOS Sonoma (14.0) 或更高</span>
+        <span>•</span>
+        <span>代码开源许可：MIT License</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section id="faq" class="py-20 max-w-4xl mx-auto px-6 relative z-10 border-t border-white/5">
+    <div class="text-center mb-14">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-brand-400 mb-2">FAQ</h2>
+      <p class="text-3xl font-extrabold text-white">常见问题与解答</p>
+    </div>
+
+    <div class="space-y-4">
+      <div class="glass-card p-6 rounded-xl">
+        <h3 class="text-base font-bold text-white mb-2 flex items-center gap-2">
+          <i data-lucide="help-circle" class="w-4 h-4 text-brand-400"></i> AI 助手需要绑定特定的模型服务商吗？
+        </h3>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          不强制。AIConsole 内置了标准 OpenAI 协议客户端，你可以无缝接入 DeepSeek、OpenAI、Claude、Gemini，甚至局域网运行的本地 Ollama。API Key 完全存储在你本地的 macOS Keychain 中，绝不上云。
+        </p>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl">
+        <h3 class="text-base font-bold text-white mb-2 flex items-center gap-2">
+          <i data-lucide="help-circle" class="w-4 h-4 text-brand-400"></i> 遇到 macOS 提示“无法打开，因为无法验证开发者”怎么办？
+        </h3>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          由于本应用采用本地 Ad-hoc 代码签名，若首次打开出现提示，请在「系统设置」➔「隐私与安全性」中找到 AIConsole 并点击「仍要打开」，或在终端执行 <code>xattr -cr /Applications/AIConsole.app</code> 即可。
+        </p>
+      </div>
+
+      <div class="glass-card p-6 rounded-xl">
+        <h3 class="text-base font-bold text-white mb-2 flex items-center gap-2">
+          <i data-lucide="help-circle" class="w-4 h-4 text-brand-400"></i> 是否支持 Intel 架构的 Mac 设备？
+        </h3>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          当前编译产物主要针对 Apple Silicon (M1/M2/M3/M4) 系列芯片深度优化。若需要在 Intel 芯片设备运行，可通过源码执行 <code>swift build -c release</code> 编译属于当前机器的二进制。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-12 border-t border-white/5 relative z-10 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <img src="AppIcon.png" alt="AIConsole" class="w-5 h-5 rounded-md">
+        <span class="text-slate-400 font-semibold">AIConsole</span>
+        <span>© 2026 Crafted for macOS Power Users.</span>
+      </div>
+
+      <div class="flex items-center gap-6">
+        <a href="https://ppt.bin0sky.tech" target="_blank" class="hover:text-slate-300 transition">PPT 矩阵</a>
+        <a href="https://icon.bin0sky.tech" target="_blank" class="hover:text-slate-300 transition">Icon 矩阵</a>
+        <a id="footerGithubLink" href="https://github.com" target="_blank" class="hover:text-slate-300 transition">GitHub 仓库</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Auto configure GitHub repository links
+    // Set your GitHub repository here (e.g. 'https://github.com/your-username/AIConsole')
+    const GITHUB_REPO = 'https://github.com';
+    const LATEST_RELEASE_DMG = GITHUB_REPO + '/releases/latest/download/AIConsole-macOS.dmg';
+    const LATEST_RELEASE_ZIP = GITHUB_REPO + '/releases/latest/download/AIConsole-macOS.zip';
+
+    document.getElementById('navGithubBtn').href = GITHUB_REPO;
+    document.getElementById('footerGithubLink').href = GITHUB_REPO;
+    document.getElementById('heroDmgBtn').href = LATEST_RELEASE_DMG;
+    document.getElementById('heroZipBtn').href = LATEST_RELEASE_ZIP;
+    document.getElementById('ctaDmgBtn').href = LATEST_RELEASE_DMG;
+    document.getElementById('ctaZipBtn').href = LATEST_RELEASE_ZIP;
+  </script>
+</body>
+</html>
