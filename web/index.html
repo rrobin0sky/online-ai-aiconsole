@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AIConsole — 为 macOS 打造的原生 AI 智能终端与运维工作台</title>
-  <meta name="description" content="专为 Mac 硬件深度调校。原生 Swift 驱动，融合 SSH、USB 串口、VNC、FTP 全协议，内置 AI 故障根因诊断与 Touch ID 生物防护。">
+  <title>AIConsole — 为 macOS 打造的原生 AI 智能终端</title>
+  <meta name="description" content="下一代 macOS 智能终端。融合全协议远程连接、AI 错误自动诊断与芯片级 Touch ID 守护。">
   <link rel="icon" type="image/png" href="AppIcon.png">
   
-  <!-- Apple-inspired Typography -->
+  <!-- Apple & Linear Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -21,20 +21,7 @@
         extend: {
           fontFamily: {
             sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
-            mono: ['"JetBrains Mono"', '"SF Mono"', 'Menlo', 'Monaco', 'monospace'],
-          },
-          colors: {
-            apple: {
-              black: '#000000',
-              gray900: '#0b0c10',
-              gray800: '#14161f',
-              gray700: '#1e2230',
-              blue: '#2997ff',
-              purple: '#af52de',
-              green: '#30d158',
-              orange: '#ff9f0a',
-              red: '#ff453a'
-            }
+            mono: ['"JetBrains Mono"', '"SF Mono"', 'Menlo', 'monospace'],
           }
         }
       }
@@ -51,498 +38,259 @@
     
     body {
       background-color: #000000;
-      color: #f5f5f7;
+      color: #ededed;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
       overflow-x: hidden;
     }
 
-    /* Apple-style top spotlight */
-    .apple-spotlight {
+    /* Minimalist Apple Spotlight */
+    .spotlight {
       position: absolute;
-      top: -120px;
+      top: -160px;
       left: 50%;
       transform: translateX(-50%);
-      width: 1000px;
-      height: 600px;
-      background: radial-gradient(ellipse 65% 50% at 50% 0%, rgba(120, 119, 198, 0.22) 0%, rgba(255, 255, 255, 0.04) 40%, rgba(0, 0, 0, 0) 100%);
+      width: 900px;
+      height: 500px;
+      background: radial-gradient(ellipse 60% 45% at 50% 0%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 70%);
       pointer-events: none;
       z-index: 0;
     }
 
-    /* Apple Glassmorphism */
-    .apple-glass {
-      background: rgba(18, 19, 26, 0.65);
-      backdrop-filter: blur(28px) saturate(190%);
-      -webkit-backdrop-filter: blur(28px) saturate(190%);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.65), 0 0 1px 1px rgba(255, 255, 255, 0.05) inset;
+    /* Linear/Raycast-style subtle card */
+    .feature-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
-
-    .apple-glass-card {
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%), #0a0b10;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .apple-glass-card:hover {
-      border-color: rgba(255, 255, 255, 0.18);
+    .feature-card:hover {
+      background: rgba(255, 255, 255, 0.035);
+      border-color: rgba(255, 255, 255, 0.16);
       transform: translateY(-2px);
-      box-shadow: 0 28px 50px rgba(0, 0, 0, 0.6), 0 0 20px rgba(41, 151, 255, 0.12);
     }
 
-    .apple-nav {
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    /* Window border */
+    .window-frame {
+      background: #090a0f;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
     }
 
-    /* Apple Typography Gradient */
-    .text-gradient {
-      background: linear-gradient(180deg, #FFFFFF 0%, #A1A1A6 100%);
+    /* Gradient texts */
+    .text-title {
+      background: linear-gradient(180deg, #FFFFFF 20%, #8E8E93 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-    }
-
-    .text-gradient-blue {
-      background: linear-gradient(135deg, #2997ff 0%, #70baff 50%, #af52de 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    /* Terminal scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #000000;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #232530;
-      border-radius: 3px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #3b3f54;
     }
   </style>
 </head>
-<body class="relative selection:bg-apple-blue selection:text-white">
+<body class="selection:bg-white selection:text-black">
 
-  <!-- Apple Ambient Spotlight -->
-  <div class="apple-spotlight"></div>
+  <!-- Ambient Light -->
+  <div class="spotlight"></div>
 
-  <!-- Navigation -->
-  <header class="fixed top-0 left-0 right-0 z-50 apple-nav transition-all">
-    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-      <a href="#" class="flex items-center gap-2.5 group">
-        <img src="AppIcon.png" alt="AIConsole" class="w-8 h-8 rounded-lg shadow-md ring-1 ring-white/10 group-hover:scale-105 transition">
-        <span class="font-bold text-base tracking-tight text-white">AIConsole</span>
+  <!-- Minimal Nav -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-black/60 backdrop-blur-xl border-b border-white/[0.06]">
+    <div class="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2.5">
+        <img src="AppIcon.png" alt="AIConsole" class="w-7 h-7 rounded-lg">
+        <span class="font-bold text-sm tracking-tight text-white">AIConsole</span>
       </a>
 
-      <nav class="hidden md:flex items-center gap-8 text-[13px] font-normal text-[#86868b]">
-        <a href="#features" class="hover:text-white transition">设计特性</a>
-        <a href="#protocols" class="hover:text-white transition">协议矩阵</a>
-        <a href="#security-guide" class="hover:text-apple-orange flex items-center gap-1 transition text-white/90">
-          <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-apple-orange"></i>
-          <span>首次安装提示解决</span>
+      <div class="flex items-center gap-5 text-xs text-[#8e8e93]">
+        <a href="#features" class="hover:text-white transition">核心亮点</a>
+        <a href="#download" class="hover:text-white transition">下载</a>
+        <a href="https://github.com/rrobin0sky/online-ai-aiconsole" target="_blank" class="hover:text-white transition flex items-center gap-1">
+          <i data-lucide="github" class="w-3.5 h-3.5"></i>
+          <span>GitHub</span>
         </a>
-        <a href="#faq" class="hover:text-white transition">常见问题</a>
-      </nav>
-
-      <div class="flex items-center gap-3">
-        <a href="https://github.com/rrobin0sky/online-ai-aiconsole" target="_blank" class="text-[#86868b] hover:text-white p-1.5 transition">
-          <i data-lucide="github" class="w-4 h-4"></i>
-        </a>
-        <a href="#download" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-black hover:bg-slate-200 text-xs font-semibold tracking-tight transition hover:scale-[1.02]">
-          <i data-lucide="download" class="w-3.5 h-3.5"></i>
-          <span>下载 macOS 版</span>
+        <a href="https://github.com/rrobin0sky/online-ai-aiconsole/releases/latest/download/AIConsole-macOS.dmg" 
+           class="px-3 py-1.5 rounded-full bg-white text-black font-semibold hover:bg-[#e1e1e6] transition text-xs">
+          下载 macOS 版
         </a>
       </div>
     </div>
   </header>
 
   <!-- Hero Section -->
-  <section class="relative pt-32 pb-16 md:pt-40 md:pb-24 max-w-5xl mx-auto px-6 text-center z-10">
-    <!-- Apple Pill Badge -->
-    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.06] border border-white/[0.12] text-xs font-medium text-[#a1a1a6] mb-8">
-      <span class="w-1.5 h-1.5 rounded-full bg-apple-blue animate-pulse"></span>
-      全新架构 • 深度调校 Apple Silicon 硬件加速
+  <section class="relative pt-32 pb-16 md:pt-40 md:pb-20 max-w-4xl mx-auto px-6 text-center z-10">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.05] border border-white/[0.08] text-xs text-[#8e8e93] mb-6">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+      专为 macOS 打造 • 原生 Swift 构建
     </div>
 
-    <!-- Main Title -->
-    <h1 class="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-gradient leading-[1.08] max-w-4xl mx-auto">
-      终端，从此拥有<br>
-      <span class="text-gradient-blue">专业级 AI 诊断思维</span>
+    <h1 class="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-title leading-[1.08]">
+      下一代智能终端。<br>
+      极速，直觉，AI 驱动。
     </h1>
 
-    <p class="mt-6 text-base sm:text-xl text-[#86868b] max-w-2xl mx-auto font-normal leading-relaxed">
-      原生 Swift 极速构建。融合 SSH、硬件串口、VNC、FTP 全场景协议，搭载全自动报错提取与 Touch ID 敏感权限隔离。
+    <p class="mt-6 text-base sm:text-lg text-[#8e8e93] max-w-xl mx-auto font-normal leading-relaxed">
+      告别繁复工具与报错盲猜。集全协议连接、终端错误秒级根因诊断与 Touch ID 生物防护于一体。
     </p>
 
-    <!-- Download Buttons -->
-    <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+    <!-- Download CTA -->
+    <div class="mt-10 flex flex-col items-center justify-center gap-3">
       <a href="https://github.com/rrobin0sky/online-ai-aiconsole/releases/latest/download/AIConsole-macOS.dmg" 
-         class="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-3.5 rounded-full bg-white text-black hover:bg-[#e8e8ed] font-semibold text-sm transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:scale-[1.02]">
+         class="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-white text-black font-semibold text-sm hover:bg-[#e8e8ed] transition shadow-[0_0_30px_rgba(255,255,255,0.18)] hover:scale-[1.01]">
         <i data-lucide="apple" class="w-4 h-4"></i>
-        <span>免费下载 DMG 镜像</span>
-        <span class="text-[11px] py-0.5 px-2 bg-black/10 rounded-full font-mono text-zinc-700">v1.2.0</span>
+        <span>下载 macOS 版 (.dmg)</span>
+        <span class="text-[11px] text-[#636366] font-mono">v1.2.0</span>
       </a>
 
-      <a href="https://github.com/rrobin0sky/online-ai-aiconsole/releases/latest/download/AIConsole-macOS.zip" 
-         class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] text-white font-medium text-sm border border-white/[0.1] transition-all">
-        <i data-lucide="archive" class="w-4 h-4 text-[#86868b]"></i>
-        <span>ZIP 便携包</span>
-      </a>
-    </div>
-
-    <div class="mt-5 text-xs text-[#86868b] flex items-center justify-center gap-4 font-mono">
-      <span>适用于 macOS 14.0+ (Sonoma / Sequoia)</span>
-      <span>•</span>
-      <span>原生 64 位架构 (M1/M2/M3/M4 & Intel)</span>
-    </div>
-
-    <!-- PROMINENT SECURITY GUIDE CALLOUT -->
-    <div id="security-guide" class="mt-12 max-w-2xl mx-auto text-left rounded-2xl bg-gradient-to-b from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 p-5 shadow-2xl relative overflow-hidden">
-      <div class="flex items-start gap-3.5">
-        <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-400 mt-0.5">
-          <i data-lucide="shield-alert" class="w-5 h-5"></i>
-        </div>
-        <div class="flex-1">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-bold text-white flex items-center gap-2">
-              首次打开提示“无法打开 / 无法验证开发者”？
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-mono">3 秒解决</span>
-            </h3>
-          </div>
-          <p class="text-xs text-[#a1a1a6] mt-1.5 leading-relaxed">
-            因该项目为 GitHub 开源应用，macOS Gatekeeper 安全机制会自动对网络下载的未付费证书应用添加临时隔离。请选择以下任意一种方式立即解除：
-          </p>
-
-          <!-- Method 1: Terminal Command (One click copy) -->
-          <div class="mt-3.5 p-3 rounded-xl bg-black/80 border border-white/10">
-            <div class="flex items-center justify-between text-[11px] text-[#86868b] mb-1.5">
-              <span class="font-mono flex items-center gap-1.5 text-zinc-300">
-                <i data-lucide="terminal" class="w-3.5 h-3.5 text-apple-blue"></i>
-                极速方案：在 Mac 终端执行一键解除命令
-              </span>
-              <button id="copyCmdBtn" onclick="copyBypassCommand()" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white text-[11px] font-medium transition active:scale-95">
-                <i data-lucide="copy" class="w-3 h-3"></i>
-                <span id="copyBtnText">复制命令</span>
-              </button>
-            </div>
-            <code class="block font-mono text-xs text-amber-300 select-all py-1">
-              xattr -cr /Applications/AIConsole.app
-            </code>
-          </div>
-
-          <!-- Method 2: GUI Settings fallback -->
-          <div class="mt-2.5 flex items-center gap-2 text-[11px] text-[#86868b]">
-            <i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5 text-zinc-400 shrink-0"></i>
-            <span>无需终端法：打开 Mac「系统设置」➔「隐私与安全性」➔ 找到 AIConsole 并点击<strong>「仍要打开」</strong>即可。</span>
-          </div>
-        </div>
+      <!-- Minimal Gatekeeper Command Tip -->
+      <div class="mt-4 flex items-center gap-2 text-xs text-[#8e8e93] bg-white/[0.03] border border-white/[0.08] px-3.5 py-1.5 rounded-full font-mono">
+        <span class="text-amber-400/90 text-[11px]">如遇无法打开提示:</span>
+        <code class="text-zinc-300 text-[11px]">xattr -cr /Applications/AIConsole.app</code>
+        <button onclick="copyCmd()" id="copyBtn" class="ml-1 text-[11px] text-white hover:text-white bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded transition">
+          复制
+        </button>
       </div>
     </div>
 
-    <!-- Apple-style Window Mockup -->
-    <div class="mt-16 max-w-4xl mx-auto rounded-2xl apple-glass p-2.5 shadow-2xl relative">
-      <!-- Window Titlebar -->
-      <div class="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-black/40 rounded-t-xl">
+    <!-- Clean macOS Window Preview -->
+    <div class="mt-14 rounded-2xl window-frame p-2.5 text-left">
+      <!-- Titlebar -->
+      <div class="flex items-center justify-between px-3.5 py-2 border-b border-white/[0.06]">
         <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e]"></div>
-          <div class="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123]"></div>
-          <div class="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29]"></div>
-          <span class="ml-3 text-xs font-mono text-[#86868b]">AIConsole — 生产集群排障工作区</span>
+          <div class="w-3 h-3 rounded-full bg-[#ff5f56]/80"></div>
+          <div class="w-3 h-3 rounded-full bg-[#ffbd2e]/80"></div>
+          <div class="w-3 h-3 rounded-full bg-[#27c93f]/80"></div>
+          <span class="ml-3 text-xs font-mono text-[#636366]">AIConsole — 生产节点</span>
         </div>
-        <div class="flex items-center gap-2">
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/20">SSH: connected</span>
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-apple-blue/10 text-apple-blue font-mono border border-apple-blue/20">AI Copilot: 极速模式</span>
+        <div class="flex items-center gap-2 text-[10px] font-mono">
+          <span class="text-emerald-400">● SSH 已连接</span>
+          <span class="text-zinc-500">•</span>
+          <span class="text-[#8e8e93]">AI Copilot 就绪</span>
         </div>
       </div>
 
-      <!-- App Workspace Content -->
-      <div class="grid grid-cols-1 md:grid-cols-12 min-h-[420px] bg-[#090a0f] rounded-b-xl overflow-hidden font-mono text-xs text-left">
-        
-        <!-- Left: Real Terminal Output -->
-        <div class="md:col-span-7 p-5 bg-[#07080c] border-r border-white/[0.06] space-y-2 overflow-y-auto">
-          <div class="text-[#636366]">Last login: Wed Sep 23 23:00:15 on ttys001</div>
-          <div class="text-zinc-300"><span class="text-emerald-400">admin@k8s-node-04</span>:<span class="text-apple-blue">~</span>$ docker compose ps</div>
-          <div class="text-[#8e8e93]">NAME               IMAGE             STATUS                   PORTS</div>
-          <div class="text-emerald-400">api-gateway        nginx:alpine      Up 4 hours               0.0.0.0:80->80/tcp</div>
-          <div class="text-red-400 font-semibold">core-backend       app:latest        Exited (137) 2 mins ago   </div>
-          
-          <div class="mt-4 text-zinc-300"><span class="text-emerald-400">admin@k8s-node-04</span>:<span class="text-apple-blue">~</span>$ docker compose logs --tail=2 core-backend</div>
-          <div class="text-red-400/90 pl-2">fatal error: runtime: out of memory: cannot allocate 536870912-byte block</div>
-          <div class="text-[#8e8e93] pl-2">Process received SIGKILL signal by Linux kernel cgroup OOM killer.</div>
-          
-          <div class="mt-4 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-[11px] flex items-center gap-2">
-            <i data-lucide="alert-octagon" class="w-4 h-4 text-red-400 shrink-0"></i>
-            <span>捕捉到容器 OOM 致命退出 (Exit Code 137)，已触发 AICopilot</span>
-          </div>
-
-          <div class="text-zinc-400 pt-2"><span class="text-emerald-400">admin@k8s-node-04</span>:<span class="text-apple-blue">~</span>$ <span class="inline-block w-1.5 h-4 bg-zinc-300 align-middle animate-pulse"></span></div>
+      <!-- Terminal + AI Split -->
+      <div class="grid grid-cols-1 md:grid-cols-12 min-h-[340px] text-xs font-mono">
+        <!-- Terminal (Left) -->
+        <div class="md:col-span-7 p-5 space-y-2 border-b md:border-b-0 md:border-r border-white/[0.06]">
+          <div class="text-[#636366]">Last login: ttys001 (prod-node)</div>
+          <div class="text-zinc-300"><span class="text-emerald-400">root@node</span>:<span class="text-cyan-400">~</span>$ systemctl start nginx</div>
+          <div class="text-red-400 font-semibold">Job for nginx.service failed.</div>
+          <div class="text-[#8e8e93] text-[11px]">nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)</div>
+          <div class="mt-3 text-zinc-300"><span class="text-emerald-400">root@node</span>:<span class="text-cyan-400">~</span>$ <span class="inline-block w-2 h-4 bg-white/70 align-middle animate-pulse"></span></div>
         </div>
 
-        <!-- Right: AI Copilot Card -->
-        <div class="md:col-span-5 p-5 bg-[#0c0d14] flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-              <span class="text-xs font-bold text-white flex items-center gap-1.5">
-                <i data-lucide="sparkles" class="w-4 h-4 text-apple-purple"></i> AI 根因定位卡片
-              </span>
-              <span class="text-[10px] text-zinc-500 font-mono">0.38s 分析完成</span>
+        <!-- AI Assistant (Right) -->
+        <div class="md:col-span-5 p-5 bg-white/[0.01] flex flex-col justify-between font-sans">
+          <div class="space-y-3">
+            <div class="text-xs font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i> AI 根因定位
             </div>
-
-            <!-- Root cause block -->
-            <div class="mt-3.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <div class="text-[11px] font-bold text-apple-blue flex items-center gap-1.5">
-                <i data-lucide="target" class="w-3.5 h-3.5"></i> 核心根因
-              </div>
-              <p class="text-[11px] text-zinc-300 mt-1 font-sans leading-relaxed">
-                JVM 堆内存超出 Docker Compose 设置的 <code class="text-amber-300 font-mono">512MB</code> 物理上限，被 Linux 内核 OOM Killer 强制终结。
-              </p>
-            </div>
-
-            <!-- Fix Command -->
-            <div class="mt-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <div class="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
-                <i data-lucide="zap" class="w-3.5 h-3.5"></i> 极速修复命令
-              </div>
-              <pre class="mt-1.5 p-2 rounded-lg bg-black text-zinc-300 text-[10px] font-mono leading-relaxed"><code># 临时调大 cgroup 内存并热重启
-docker update --memory 2048m core-backend
-docker compose restart core-backend</code></pre>
-              <div class="mt-2.5 flex items-center gap-2 font-sans">
-                <button class="px-3 py-1 rounded-md bg-apple-blue hover:bg-blue-600 text-white text-[11px] font-semibold transition flex items-center gap-1">
-                  <i data-lucide="corner-down-left" class="w-3 h-3"></i> 一键回填
-                </button>
-                <button class="px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 text-[11px] transition">
-                  复制
-                </button>
-              </div>
+            <p class="text-xs text-[#8e8e93] leading-relaxed">
+              端口 80 被既有旧进程占用，导致 Nginx 端口绑定失败。
+            </p>
+            <div class="p-3 rounded-xl bg-black border border-white/[0.08] font-mono text-[11px]">
+              <div class="text-[#8e8e93] mb-1"># 一键修复命令</div>
+              <div class="text-emerald-400">fuser -k 80/tcp && systemctl restart nginx</div>
             </div>
           </div>
-
-          <div class="text-[10px] text-[#86868b] text-center pt-3 border-t border-white/[0.06]">
-            基于系统 Keychain 本地安全隔离 • 零凭证上云
+          <div class="text-[10px] text-[#636366] font-mono pt-3 border-t border-white/[0.06]">
+            安全隔离 • 零凭证上云
           </div>
         </div>
-
       </div>
     </div>
   </section>
 
-  <!-- Bento Grid Feature Section (Apple Style) -->
-  <section id="features" class="py-24 max-w-6xl mx-auto px-6 relative z-10">
-    <div class="text-center max-w-2xl mx-auto mb-16">
-      <h2 class="text-xs font-bold uppercase tracking-widest text-apple-blue mb-3">Bento Architecture</h2>
-      <p class="text-3xl sm:text-5xl font-bold tracking-tight text-gradient">不仅是终端。更是一座精工细作的生产力控制台。</p>
+  <!-- Exactly 4 Core Highlights Section -->
+  <section id="features" class="py-20 max-w-4xl mx-auto px-6 z-10 relative">
+    <div class="text-center mb-14">
+      <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">4 个核心特性，重塑运维体验</h2>
     </div>
 
-    <!-- Bento Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       
-      <!-- Big Feature: AI Copilot (Col 8) -->
-      <div class="md:col-span-8 apple-glass-card rounded-3xl p-8 relative overflow-hidden flex flex-col justify-between">
-        <div>
-          <div class="w-11 h-11 rounded-2xl bg-apple-purple/15 text-apple-purple flex items-center justify-center mb-6">
-            <i data-lucide="brain-circuit" class="w-6 h-6"></i>
-          </div>
-          <span class="text-xs font-semibold text-apple-purple uppercase tracking-wider">AI Copilot Engine</span>
-          <h3 class="text-2xl sm:text-3xl font-bold text-white mt-2 mb-4 tracking-tight">三段式无干扰诊断，彻底告别频繁切屏</h3>
-          <p class="text-sm text-[#86868b] leading-relaxed max-w-xl">
-            深度集成终端 I/O 监听器。遇到报错时，AI 模型会自动截取上下文字符串进行根因提取。直接为你生成严谨的 Markdown 修复卡片，无需打开浏览器反复搜索报错。
-          </p>
+      <!-- 01 AI Copilot -->
+      <div class="feature-card rounded-2xl p-6">
+        <div class="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-white mb-4">
+          <i data-lucide="bot" class="w-4 h-4"></i>
         </div>
-
-        <div class="mt-8 flex flex-wrap gap-2 text-xs font-mono text-zinc-400">
-          <span class="px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08]">DeepSeek-V3</span>
-          <span class="px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08]">Claude 3.5 Sonnet</span>
-          <span class="px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08]">OpenAI o1 / 4o</span>
-          <span class="px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08]">本地 Ollama</span>
-        </div>
+        <h3 class="text-base font-bold text-white mb-2">01. 智能 AI 故障诊断</h3>
+        <p class="text-xs text-[#8e8e93] leading-relaxed">
+          自动捕获终端报错堆栈。毫秒级生成根因定位与可一键回填的修复指令卡片，告别复制报错到搜索引擎盲搜。
+        </p>
       </div>
 
-      <!-- Feature 2: Touch ID Security (Col 4) -->
-      <div class="md:col-span-4 apple-glass-card rounded-3xl p-8 flex flex-col justify-between">
-        <div>
-          <div class="w-11 h-11 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center mb-6">
-            <i data-lucide="fingerprint" class="w-6 h-6"></i>
-          </div>
-          <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Security First</span>
-          <h3 class="text-xl font-bold text-white mt-2 mb-3">Touch ID 生物认证</h3>
-          <p class="text-xs text-[#86868b] leading-relaxed">
-            核心生产主机与私钥设置指纹保护。每次连接或调取密码时均需通过 Mac 芯片级 Secure Enclave 校验，彻底杜绝同事路过误操作。
-          </p>
+      <!-- 02 All-in-one Protocols -->
+      <div class="feature-card rounded-2xl p-6">
+        <div class="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-white mb-4">
+          <i data-lucide="network" class="w-4 h-4"></i>
         </div>
-
-        <div class="mt-6 pt-4 border-t border-white/[0.06] flex items-center justify-between text-xs text-zinc-400 font-mono">
-          <span>macOS LocalAuth</span>
-          <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
-        </div>
+        <h3 class="text-base font-bold text-white mb-2">02. 全协议一站式连接</h3>
+        <p class="text-xs text-[#8e8e93] leading-relaxed">
+          集成 SSH 远程服务器、USB 硬件串口直连 (IOKit 识别交换机与板卡)、VNC 远程桌面与 FTP 传输，告别安装繁杂客户端。
+        </p>
       </div>
 
-      <!-- Feature 3: USB Serial Hardware Port (Col 4) -->
-      <div class="md:col-span-4 apple-glass-card rounded-3xl p-8 flex flex-col justify-between">
-        <div>
-          <div class="w-11 h-11 rounded-2xl bg-amber-500/15 text-amber-400 flex items-center justify-center mb-6">
-            <i data-lucide="cpu" class="w-6 h-6"></i>
-          </div>
-          <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">IOKit Hardware</span>
-          <h3 class="text-xl font-bold text-white mt-2 mb-3">USB 硬件串口直连</h3>
-          <p class="text-xs text-[#86868b] leading-relaxed">
-            底层集成 IOKit 硬件监听器。网络交换机 Console 线、CH340、CP2102、FTDI 板卡即插即显，无需在终端反复寻找 <code>/dev/tty.usb*</code> 设备名。
-          </p>
+      <!-- 03 Hardware Security & Guard -->
+      <div class="feature-card rounded-2xl p-6">
+        <div class="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-white mb-4">
+          <i data-lucide="fingerprint" class="w-4 h-4"></i>
         </div>
-
-        <div class="mt-6 pt-4 border-t border-white/[0.06] flex items-center justify-between text-xs text-zinc-400 font-mono">
-          <span>波特率 9600 - 115200</span>
-          <i data-lucide="usb" class="w-4 h-4 text-amber-400"></i>
-        </div>
+        <h3 class="text-base font-bold text-white mb-2">03. Touch ID 与高危防护</h3>
+        <p class="text-xs text-[#8e8e93] leading-relaxed">
+          敏感会话支持 Mac 指纹生物认证；所有凭据由系统 Keychain 本地隔离；内置语义拦截引擎，主动拦截 rm -rf 等破坏性指令。
+        </p>
       </div>
 
-      <!-- Feature 4: High Risk Command Guard (Col 4) -->
-      <div class="md:col-span-4 apple-glass-card rounded-3xl p-8 flex flex-col justify-between">
-        <div>
-          <div class="w-11 h-11 rounded-2xl bg-apple-red/15 text-apple-red flex items-center justify-center mb-6">
-            <i data-lucide="shield-x" class="w-6 h-6"></i>
-          </div>
-          <span class="text-xs font-semibold text-apple-red uppercase tracking-wider">Guard Engine</span>
-          <h3 class="text-xl font-bold text-white mt-2 mb-3">高危指令主动拦截</h3>
-          <p class="text-xs text-[#86868b] leading-relaxed">
-            内置语义拦截字典。当输入 <code>rm -rf /</code>、<code>mkfs</code>、破坏性数据库清空命令时，触发醒目弹窗预警，守护生产安全最后一道防线。
-          </p>
+      <!-- 04 GPU Accelerated & Native -->
+      <div class="feature-card rounded-2xl p-6">
+        <div class="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-white mb-4">
+          <i data-lucide="zap" class="w-4 h-4"></i>
         </div>
-
-        <div class="mt-6 pt-4 border-t border-white/[0.06] flex items-center justify-between text-xs text-zinc-400 font-mono">
-          <span>0 延迟拦截引擎</span>
-          <i data-lucide="check" class="w-4 h-4 text-apple-red"></i>
-        </div>
-      </div>
-
-      <!-- Feature 5: VNC & FTP Integrated (Col 4) -->
-      <div class="md:col-span-4 apple-glass-card rounded-3xl p-8 flex flex-col justify-between">
-        <div>
-          <div class="w-11 h-11 rounded-2xl bg-apple-blue/15 text-apple-blue flex items-center justify-center mb-6">
-            <i data-lucide="monitor" class="w-6 h-6"></i>
-          </div>
-          <span class="text-xs font-semibold text-apple-blue uppercase tracking-wider">All-in-One</span>
-          <h3 class="text-xl font-bold text-white mt-2 mb-3">VNC 远程桌面 & FTP</h3>
-          <p class="text-xs text-[#86868b] leading-relaxed">
-            无需在 Termius、FileZilla、VNC Viewer 之间来回切换。终端旁随时唤起远程桌面预览与可视化 FTP 双向传输。
-          </p>
-        </div>
-
-        <div class="mt-6 pt-4 border-t border-white/[0.06] flex items-center justify-between text-xs text-zinc-400 font-mono">
-          <span>一体化工作区</span>
-          <i data-lucide="layers" class="w-4 h-4 text-apple-blue"></i>
-        </div>
+        <h3 class="text-base font-bold text-white mb-2">04. 原生 Swift 与 GPU 渲染</h3>
+        <p class="text-xs text-[#8e8e93] leading-relaxed">
+          无 Electron 臃肿负担，秒级冷启。纯原生伪终端底层支持，流畅 120Hz 刷新率，自由水平与垂直平铺分屏。
+        </p>
       </div>
 
     </div>
   </section>
 
-  <!-- Download Section -->
-  <section id="download" class="py-24 max-w-4xl mx-auto px-6 text-center relative z-10">
-    <div class="apple-glass rounded-3xl p-10 sm:p-16 border border-white/[0.12] relative overflow-hidden">
-      <img src="AppIcon.png" alt="AIConsole" class="w-20 h-20 mx-auto mb-6 rounded-2xl shadow-2xl ring-1 ring-white/20">
+  <!-- Clean Bottom Download Banner -->
+  <section id="download" class="py-20 max-w-4xl mx-auto px-6 text-center border-t border-white/[0.06]">
+    <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">现在下载 AIConsole</h2>
+    <p class="mt-2 text-xs text-[#8e8e93]">专为 macOS Sonoma (14.0) 及更高版本设计 • 仅 3.2MB 纯净体积</p>
 
-      <h2 class="text-3xl sm:text-5xl font-bold text-white tracking-tight">
-        开启属于你的 Mac 终端新体验
-      </h2>
-      <p class="mt-4 text-[#86868b] max-w-md mx-auto text-sm sm:text-base leading-relaxed">
-        纯净无臃肿运行库，秒级冷启。立即下载并开始无缝运维。
-      </p>
+    <div class="mt-6 flex items-center justify-center gap-4">
+      <a href="https://github.com/rrobin0sky/online-ai-aiconsole/releases/latest/download/AIConsole-macOS.dmg" 
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-black font-semibold text-xs hover:bg-[#e8e8ed] transition">
+        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+        <span>下载 DMG 安装镜像</span>
+      </a>
 
-      <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-        <a href="https://github.com/rrobin0sky/online-ai-aiconsole/releases/latest/download/AIConsole-macOS.dmg" 
-           class="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-white text-black hover:bg-[#e8e8ed] font-bold text-sm transition-all hover:scale-[1.02] shadow-[0_0_40px_rgba(255,255,255,0.2)]">
-          <i data-lucide="download" class="w-4 h-4"></i>
-          <span>下载 macOS DMG 镜像</span>
-        </a>
-
-        <a href="#security-guide" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-full bg-white/[0.08] hover:bg-white/[0.14] text-white text-sm font-medium border border-white/[0.1] transition">
-          <i data-lucide="shield-alert" class="w-4 h-4 text-amber-400"></i>
-          <span>首次安装提示指引</span>
-        </a>
-      </div>
-
-      <div class="mt-6 text-xs text-[#86868b] flex items-center justify-center gap-4 font-mono">
-        <span>macOS Sonoma (14.0) 或更高</span>
-        <span>•</span>
-        <span>开源许可：MIT License</span>
-      </div>
+      <a href="https://github.com/rrobin0sky/online-ai-aiconsole" target="_blank"
+         class="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-medium border border-white/[0.08] transition">
+        <i data-lucide="github" class="w-3.5 h-3.5"></i>
+        <span>GitHub 源码</span>
+      </a>
     </div>
   </section>
 
-  <!-- FAQ Section -->
-  <section id="faq" class="py-20 max-w-3xl mx-auto px-6 relative z-10 border-t border-white/[0.08]">
-    <div class="text-center mb-12">
-      <h2 class="text-xs font-bold uppercase tracking-widest text-[#86868b] mb-2">FAQ</h2>
-      <p class="text-3xl font-bold text-white">解答你的疑虑</p>
-    </div>
-
-    <div class="space-y-4">
-      <div class="p-6 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-        <h3 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
-          <i data-lucide="help-circle" class="w-4 h-4 text-apple-blue"></i> 为什么下载后首次打开提示“无法打开 / 无法验证开发者”？
-        </h3>
-        <p class="text-xs text-[#86868b] leading-relaxed">
-          这是 macOS 系统 Gatekeeper 对网络直接下载且未购买年费企业签名证书软件的标准隔离机制。只需在终端运行 <code>xattr -cr /Applications/AIConsole.app</code>，或者在 Mac「系统设置 ➔ 隐私与安全性」中点击「仍要打开」，之后即可永久正常使用。
-        </p>
-      </div>
-
-      <div class="p-6 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-        <h3 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
-          <i data-lucide="help-circle" class="w-4 h-4 text-apple-blue"></i> 我的远程服务器密码和 API Key 存在哪里？
-        </h3>
-        <p class="text-xs text-[#86868b] leading-relaxed">
-          所有密码、私钥和 AI API Key 均直接加密保存在你 Mac 本地的系统钥匙串（macOS Keychain）中，不经过任何第三方服务器中转，具有完全的本地离线隐私性。
-        </p>
-      </div>
-
-      <div class="p-6 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-        <h3 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
-          <i data-lucide="help-circle" class="w-4 h-4 text-apple-blue"></i> 支持哪些大语言模型服务？
-        </h3>
-        <p class="text-xs text-[#86868b] leading-relaxed">
-          只要支持 OpenAI 兼容接口的模型均可原生接入，包括 DeepSeek、OpenAI GPT-4o、Anthropic Claude、Google Gemini，以及内网本地运行的 Ollama 离线模型。
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer class="py-12 border-t border-white/[0.08] text-xs text-[#86868b]">
-    <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div class="flex items-center gap-2">
-        <img src="AppIcon.png" alt="AIConsole" class="w-5 h-5 rounded">
-        <span class="text-zinc-300 font-semibold">AIConsole</span>
-        <span>© 2026 Crafted with Swift for Mac.</span>
-      </div>
-
-      <div class="flex items-center gap-6">
-        <a href="https://ppt.bin0sky.tech" target="_blank" class="hover:text-white transition">PPT 矩阵</a>
-        <a href="https://icon.bin0sky.tech" target="_blank" class="hover:text-white transition">Icon 矩阵</a>
-        <a href="https://github.com/rrobin0sky/online-ai-aiconsole" target="_blank" class="hover:text-white transition">GitHub 仓库</a>
+  <!-- Ultra-clean Footer -->
+  <footer class="py-8 border-t border-white/[0.06] text-xs text-[#636366]">
+    <div class="max-w-4xl mx-auto px-6 flex items-center justify-between">
+      <span>AIConsole © 2026. Crafted for Mac.</span>
+      <div class="flex items-center gap-5">
+        <a href="https://ppt.bin0sky.tech" target="_blank" class="hover:text-zinc-400 transition">PPT 矩阵</a>
+        <a href="https://icon.bin0sky.tech" target="_blank" class="hover:text-zinc-400 transition">Icon 矩阵</a>
+        <a href="https://github.com/rrobin0sky/online-ai-aiconsole" target="_blank" class="hover:text-zinc-400 transition">GitHub</a>
       </div>
     </div>
   </footer>
 
   <script>
-    // Initialize icons
     lucide.createIcons();
 
-    // Copy command helper
-    function copyBypassCommand() {
-      const cmd = "xattr -cr /Applications/AIConsole.app";
-      navigator.clipboard.writeText(cmd).then(() => {
-        const btnText = document.getElementById('copyBtnText');
-        btnText.innerText = "已复制到剪贴板！";
-        setTimeout(() => {
-          btnText.innerText = "复制命令";
-        }, 2500);
+    function copyCmd() {
+      navigator.clipboard.writeText("xattr -cr /Applications/AIConsole.app").then(() => {
+        const btn = document.getElementById("copyBtn");
+        btn.innerText = "已复制!";
+        setTimeout(() => { btn.innerText = "复制"; }, 2000);
       });
     }
   </script>
