@@ -234,17 +234,6 @@ public struct MainWorkspaceView: View {
             .toolbarRole(.editor)
             .toolbar {
                 ToolbarItemGroup(placement: .automatic) {
-                    // Quick Spotlight Palette Button
-                    Button(action: {
-                        HapticFeedbackHelper.shared.performGeneric()
-                        withAnimation(.spring()) {
-                            showQuickPalette.toggle()
-                        }
-                    }) {
-                        Label("全局指令", systemImage: "command")
-                    }
-                    .help("极速指令与会话搜索面板 (⌘P / ⌘K)")
-                    
                     // Multi-Exec Broadcast Toggle
                     Button(action: {
                         HapticFeedbackHelper.shared.performGeneric()
@@ -988,26 +977,6 @@ struct TabBarView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
             }
-            
-            // New Tab Button
-            Button(action: onNewTab) {
-                Image(systemName: "plus")
-                    .font(.system(size: 12))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 6)
-            }
-            .buttonStyle(.plain)
-            .help("新建标签页 (⌘T)")
-            
-            // Quick Search / Palette Button
-            Button(action: onOpenPalette) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 11))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 6)
-            }
-            .buttonStyle(.plain)
-            .help("快速指令与搜索 (⌘P)")
             
             Spacer()
         }

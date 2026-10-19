@@ -65,25 +65,20 @@ public struct TerminalSplitView: View {
     public var body: some View {
         VStack(spacing: 0) {
             // Terminal Top Toolbar
-            HStack(spacing: 10) {
-                // Session title & recording indicator
-                HStack(spacing: 6) {
-                    if isRecordingSession {
+            HStack(spacing: 8) {
+                if isRecordingSession {
+                    HStack(spacing: 5) {
                         Circle()
                             .fill(Color.red)
                             .frame(width: 8, height: 8)
+                        Text("录制中")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.red)
                     }
-                    Label(session.name, systemImage: session.iconName)
-                        .font(.system(size: 13, weight: .medium))
-                    
-                    // OSC 7 Current Working Directory Badge
-                    Text(currentPath)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.black.opacity(0.2))
-                        .cornerRadius(4)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.red.opacity(0.12))
+                    .cornerRadius(4)
                 }
                 
                 Spacer()
@@ -148,38 +143,6 @@ public struct TerminalSplitView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .help("提取当前活跃终端输出进行 AI 根因分析")
-                
-                // Theme & Appearance Menu
-                Menu {
-                    Text("— 终端配色主题 —")
-                    ForEach(TerminalTheme.allThemes) { theme in
-                        Button(action: {
-                            themeStore.setTheme(theme)
-                        }) {
-                            HStack {
-                                Text(theme.name)
-                                if theme.id == themeStore.currentTheme.id {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                    Divider()
-                    Button("放大字体 (⌘+)") { themeStore.zoomIn() }
-                    Button("缩小字体 (⌘-)") { themeStore.zoomOut() }
-                    Button("重置默认字号 (13pt)") { themeStore.resetZoom() }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "paintpalette.fill")
-                            .foregroundColor(.accentColor)
-                            .font(.system(size: 11))
-                        Text(themeStore.currentTheme.name.components(separatedBy: " ").first ?? "主题")
-                            .font(.caption)
-                    }
-                }
-                .menuStyle(.borderedButton)
-                .controlSize(.small)
-                .help("切换终端配色与字体大小")
                 
                 Divider()
                     .frame(height: 14)
@@ -570,7 +533,7 @@ public struct TerminalSplitView: View {
                 Divider()
             }
             
-            // Persistent Terminal Instance Representation
+            // Persistent Terminal Instance Representation with breathing room padding
             TerminalContainerView(
                 session: targetSession,
                 theme: themeStore.currentTheme,
@@ -592,6 +555,10 @@ public struct TerminalSplitView: View {
                     self.activePane = paneIndex
                 }
             )
+            .padding(.leading, 14)
+            .padding(.trailing, 8)
+            .padding(.vertical, 8)
+            .background(Color(themeStore.currentTheme.backgroundColor))
             .opacity(isSplit && !isFocused ? 0.88 : 1.0)
         }
         .overlay(

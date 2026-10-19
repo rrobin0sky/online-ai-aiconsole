@@ -132,26 +132,16 @@ public struct SidebarView: View {
             
             Divider()
             
-            // Bottom Action Bar
+            // Bottom Status Bar
             HStack {
                 Text("\(totalSessionCount(items: sessionStore.rootItems)) 个会话")
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 
                 Spacer()
-                
-                Button(action: {
-                    parentGroupForNew = nil
-                    editingTarget = nil
-                    showingEditSheet = true
-                }) {
-                    Label("新建会话", systemImage: "plus")
-                        .font(.caption)
-                }
-                .buttonStyle(.borderless)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
             .background(Color(NSColor.controlBackgroundColor))
         }
         .sheet(isPresented: $showingEditSheet) {
