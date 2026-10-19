@@ -238,12 +238,15 @@ public final class CustomTerminalView: LocalProcessTerminalView {
         
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         
-        if session.protocolType == .local {
+        switch session.protocolType {
+        case .local:
             let targetShell = (session.startupCommand?.isEmpty == false) ? session.startupCommand! : shell
             startProcess(executable: targetShell, args: ["-l"], environment: env, execName: "-zsh")
-        } else if session.host == "localhost" || session.host == "127.0.0.1" && session.protocolType != .ssh {
-            startProcess(executable: shell, args: ["-l"], environment: env, execName: "-zsh")
-        } else if session.protocolType == .ssh {
+            
+        case .serial:
+            launchSerialProcess(session: session, environment: env)
+            
+        case .ssh:
             var args: [String] = []
             
             // Port
@@ -295,23 +298,96 @@ public final class CustomTerminalView: LocalProcessTerminalView {
             }
             
             startProcess(executable: "/usr/bin/ssh", args: args, environment: env, execName: "ssh")
-        } else if session.protocolType == .telnet {
+            
+        case .telnet:
             startProcess(executable: "/usr/bin/telnet", args: [session.host, "\(session.port)"], environment: env, execName: "telnet")
-        } else if session.protocolType == .serial {
-            if let dev = session.serialDevicePath {
-                startProcess(executable: "/usr/bin/screen", args: [dev, "\(session.baudRate)"], environment: env, execName: "screen")
-            } else {
-                startProcess(executable: shell, args: ["-l"], environment: env, execName: "-zsh")
-            }
-        } else if session.protocolType == .ble {
+            
+        case .ble:
             let bleNotice = "\r\n\u{001B}[36m[BLE]\u{001B}[0m 正在扫描并连接低功耗蓝牙设备: \(session.bleDeviceName ?? "未指定")...\r\n\u{001B}[33m[BLE]\u{001B}[0m 服务 UUID: \(session.bleServiceUUID ?? "默认") | MTU: \(session.bleMtu)\r\n\r\n"
             if let nData = bleNotice.data(using: .utf8) {
                 feed(byteArray: [UInt8](nData)[...])
             }
             startProcess(executable: shell, args: ["-l"], environment: env, execName: "-zsh")
-        } else {
+            
+        default:
             startProcess(executable: shell, args: ["-l"], environment: env, execName: "-zsh")
         }
+    }
+    
+    private func launchSerialProcess(session: SessionItem, environment: [String]) {
+        let rawDev = session.serialDevicePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let baud = session.baudRate > 0 ? session.baudRate : 9600
+        
+        // Find best available serial port if configured path doesn't exist
+        var targetDev = rawDev
+        if targetDev.isEmpty || !FileManager.default.fileExists(atPath: targetDev) {
+            let available = (try? FileManager.default.contentsOfDirectory(atPath: "/dev"))?
+                .filter { $0.hasPrefix("cu.") }
+                .map { "/dev/\($0)" }
+                .filter { $0.lowercased().contains("usb") || $0.lowercased().contains("wch") || $0.lowercased().contains("slab") } ?? []
+            if let firstUSB = available.first {
+                targetDev = firstUSB
+            }
+        }
+        
+        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        
+        let script = """
+        DEV="\(targetDev)"
+        BAUD="\(baud)"
+        
+        clear
+        echo "\\033[36;1m[AIConsole 串口终端]\\033[0m 正在初始化硬件串口连接..."
+        echo "设备路径: $DEV"
+        echo "波特率: $BAUD bps (8-N-1)"
+        echo "--------------------------------------------------------"
+        
+        if [ -z "$DEV" ] || [ ! -e "$DEV" ]; then
+            echo "\\033[31;1m[❌ 错误] 未找到串口设备: $DEV\\033[0m"
+            echo "请检查 USB-to-Console 数据线是否牢固插入 Mac。"
+            echo "当前系统中检测到的可用串口设备:"
+            ls -l /dev/cu.* 2>/dev/null || echo "无可用设备"
+            echo "--------------------------------------------------------"
+            echo "按回车键进入本地终端排查..."
+            read -r
+            exec "\(shell)" -l
+        fi
+        
+        # 检查端口是否被外部程序独占占用 (例如 Stacio, screen, minicom 等)
+        OCCUPIER=$(lsof "$DEV" 2>/dev/null | awk 'NR>1 {print $1, "(PID " $2 ")"}')
+        if [ -n "$OCCUPIER" ]; then
+            echo "\\033[31;1m[⚠️ 串口独占占用提示]\\033[0m 串口设备正被以下外部程序使用："
+            echo "👉 \\033[33;1m$OCCUPIER\\033[0m"
+            echo ""
+            echo "在 macOS 系统中，串口同一时刻只允许一个应用打开独占访问。"
+            echo "\\033[32;1m[快速解决办法]\\033[0m:"
+            echo "  • 请彻底关闭该程序（如 Stacio、SecureCRT 等）；"
+            echo "  • 或者输入 \\033[1;31mk\\033[0m 强行结束占用进程并立即连入串口。"
+            echo "--------------------------------------------------------"
+            echo -n "输入 'k' 强行释放端口并继续，或按回车进入排查模式: "
+            read -r choice
+            if [ "$choice" = "k" ] || [ "$choice" = "K" ]; then
+                PIDS=$(lsof -t "$DEV" 2>/dev/null)
+                if [ -n "$PIDS" ]; then
+                    kill -9 $PIDS 2>/dev/null
+                    sleep 0.5
+                    echo "\\033[32m已成功释放串口，正在连入...\\033[0m"
+                fi
+            else
+                exec "\(shell)" -l
+            fi
+        fi
+        
+        echo "\\033[32;1m[✅ 串口准备就绪]\\033[0m 正在接入设备控制台..."
+        echo "\\033[33;1m[💡 重点提示]\\033[0m"
+        echo "  • 连接 FortiGate 防火墙或 Cisco 交换机时，接入后请立刻按 \\033[1;4m1 ~ 2 次 [Enter/回车键]\\033[0m 唤醒登录提示符。"
+        echo "  • 退出串口请按: \\033[1mCtrl + A\\033[0m 然后按 \\033[1mK\\033[0m (按 y 确认) 即可安全断开。"
+        echo "--------------------------------------------------------"
+        sleep 0.5
+        exec /usr/bin/screen -fn "$DEV" "$BAUD"
+        """
+        
+        startProcess(executable: "/bin/zsh", args: ["-c", script], environment: environment, execName: "serial-console")
     }
     
     public func handleDroppedFile(url: URL) {

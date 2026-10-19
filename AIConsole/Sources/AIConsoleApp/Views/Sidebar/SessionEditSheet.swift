@@ -104,7 +104,7 @@ public struct SessionEditSheet: View {
         _proxyJump = State(initialValue: editingItem?.proxyJump ?? "")
         _portForwardingRules = State(initialValue: editingItem?.portForwardingRules ?? "")
         _serialDevicePath = State(initialValue: editingItem?.serialDevicePath ?? "/dev/cu.usbserial")
-        _baudRate = State(initialValue: editingItem?.baudRate ?? 115200)
+        _baudRate = State(initialValue: editingItem?.baudRate ?? 9600)
         _dataBits = State(initialValue: editingItem?.dataBits ?? 8)
         _stopBits = State(initialValue: editingItem?.stopBits ?? 1)
         _parity = State(initialValue: editingItem?.parity ?? "none")
@@ -383,11 +383,11 @@ public struct SessionEditSheet: View {
             
             FormFieldRow(label: "波特率") {
                 Picker("", selection: $baudRate) {
-                    Text("9600").tag(9600)
+                    Text("9600 (交换机/防火墙标准: FortiGate / Cisco / 华为)").tag(9600)
                     Text("19200").tag(19200)
                     Text("38400").tag(38400)
                     Text("57600").tag(57600)
-                    Text("115200 (常用)").tag(115200)
+                    Text("115200 (开发板 / Linux / 现代设备)").tag(115200)
                     Text("230400").tag(230400)
                     Text("460800").tag(460800)
                     Text("921600").tag(921600)
@@ -646,15 +646,23 @@ public struct SessionEditSheet: View {
         let fm = FileManager.default
         if let files = try? fm.contentsOfDirectory(atPath: "/dev") {
             let cuFiles = files.filter { $0.hasPrefix("cu.") }.map { "/dev/\($0)" }
-            if !cuFiles.isEmpty {
-                self.detectedSerialPorts = cuFiles
-                if !cuFiles.contains(serialDevicePath) {
-                    self.serialDevicePath = cuFiles.first ?? "/dev/cu.usbserial"
+            // 优先筛选真正的 USB 串口转换芯片 (FTDI / CH340 / CP2102 / Prolific / CDC-ACM)
+            let usbPorts = cuFiles.filter { path in
+                let lower = path.lowercased()
+                return lower.contains("usb") || lower.contains("wch") || lower.contains("slab") || lower.contains("uart")
+            }.sorted()
+            let otherPorts = cuFiles.filter { !usbPorts.contains($0) && !$0.contains("debug-console") && !$0.contains("Bluetooth") }.sorted()
+            let allCandidatePorts = usbPorts + otherPorts
+            
+            if !allCandidatePorts.isEmpty {
+                self.detectedSerialPorts = allCandidatePorts
+                if !allCandidatePorts.contains(serialDevicePath) {
+                    self.serialDevicePath = usbPorts.first ?? allCandidatePorts.first ?? "/dev/cu.usbserial"
                 }
                 return
             }
         }
-        self.detectedSerialPorts = ["/dev/cu.usbserial", "/dev/cu.wchusbserial", "/dev/cu.Bluetooth-Incoming-Port"]
+        self.detectedSerialPorts = ["/dev/cu.usbserial", "/dev/cu.wchusbserial", "/dev/cu.SLAB_USBtoUART"]
     }
     
     private func togglePasswordVisibility() {

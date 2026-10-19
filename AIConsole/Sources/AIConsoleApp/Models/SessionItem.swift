@@ -74,7 +74,7 @@ public struct SessionItem: Identifiable, Codable, Hashable {
         proxyJump: String? = nil,
         portForwardingRules: String? = nil,
         serialDevicePath: String? = nil,
-        baudRate: Int = 115200,
+        baudRate: Int = 9600,
         dataBits: Int = 8,
         stopBits: Int = 1,
         parity: String = "none",

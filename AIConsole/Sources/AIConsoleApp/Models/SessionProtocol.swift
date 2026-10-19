@@ -31,7 +31,7 @@ public enum SessionProtocol: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .ssh, .sftp, .scp: return 22
         case .telnet: return 23
-        case .serial: return 115200 // baud rate for serial
+        case .serial: return 9600 // standard baud rate for Cisco, FortiGate, Huawei switches & firewalls
         case .vnc: return 5900
         case .ftp: return 21
         case .ble, .local: return 0
