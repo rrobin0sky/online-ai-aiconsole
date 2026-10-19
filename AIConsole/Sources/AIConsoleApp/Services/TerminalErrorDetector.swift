@@ -3,11 +3,13 @@ import Combine
 
 public struct DetectedErrorEvent: Identifiable {
     public let id = UUID()
+    public let tabId: UUID?
     public let summary: String
     public let contextSnippet: String
     public let timestamp: Date
     
-    public init(summary: String, contextSnippet: String, timestamp: Date = Date()) {
+    public init(tabId: UUID? = nil, summary: String, contextSnippet: String, timestamp: Date = Date()) {
+        self.tabId = tabId
         self.summary = summary
         self.contextSnippet = contextSnippet
         self.timestamp = timestamp
@@ -18,10 +20,13 @@ public final class TerminalErrorDetector: @unchecked Sendable {
     public static let shared = TerminalErrorDetector()
     
     private let errorRegexes: [NSRegularExpression]
-    private var lastTriggerTime: Date = Date.distantPast
+    private var lastTriggerTimes: [UUID: Date] = [:]
+    private var globalLastTriggerTime: Date = Date.distantPast
     private let throttleInterval: TimeInterval = 3.0
+    private let lock = NSLock()
     
-    public var onErrorDetected: ((DetectedErrorEvent) -> Void)?
+    // Per-tab event listeners to prevent cross-tab event collisions
+    private var listeners: [UUID: (DetectedErrorEvent) -> Void] = [:]
     
     public init() {
         let patterns = [
@@ -40,11 +45,36 @@ public final class TerminalErrorDetector: @unchecked Sendable {
         self.errorRegexes = compiled
     }
     
-    public func processOutput(chunk: String, fullBufferProvider: @escaping () -> String) {
+    public func registerListener(for tabId: UUID, handler: @escaping (DetectedErrorEvent) -> Void) {
+        lock.lock()
+        listeners[tabId] = handler
+        lock.unlock()
+    }
+    
+    public func unregisterListener(for tabId: UUID) {
+        lock.lock()
+        listeners.removeValue(forKey: tabId)
+        lastTriggerTimes.removeValue(forKey: tabId)
+        lock.unlock()
+    }
+    
+    public func processOutput(tabId: UUID?, chunk: String, fullBufferProvider: @escaping () -> String) {
         guard !chunk.isEmpty else { return }
         
         let now = Date()
-        guard now.timeIntervalSince(lastTriggerTime) > throttleInterval else { return }
+        lock.lock()
+        if let tid = tabId {
+            if let last = lastTriggerTimes[tid], now.timeIntervalSince(last) < throttleInterval {
+                lock.unlock()
+                return
+            }
+        } else {
+            if now.timeIntervalSince(globalLastTriggerTime) < throttleInterval {
+                lock.unlock()
+                return
+            }
+        }
+        lock.unlock()
         
         let nsChunk = chunk as NSString
         let range = NSRange(location: 0, length: nsChunk.length)
@@ -52,15 +82,32 @@ public final class TerminalErrorDetector: @unchecked Sendable {
         for regex in errorRegexes {
             if let match = regex.firstMatch(in: chunk, options: [], range: range) {
                 let matchedText = nsChunk.substring(with: match.range).trimmingCharacters(in: .whitespacesAndNewlines)
-                self.lastTriggerTime = now
                 
-                DispatchQueue.main.async { [weak self] in
+                lock.lock()
+                if let tid = tabId {
+                    lastTriggerTimes[tid] = now
+                } else {
+                    globalLastTriggerTime = now
+                }
+                let targetHandler = tabId != nil ? listeners[tabId!] : nil
+                let allHandlers = Array(listeners.values)
+                lock.unlock()
+                
+                DispatchQueue.main.async {
                     let fullContext = fullBufferProvider()
                     let event = DetectedErrorEvent(
+                        tabId: tabId,
                         summary: matchedText.isEmpty ? "终端输出报错异常" : matchedText,
                         contextSnippet: fullContext
                     )
-                    self?.onErrorDetected?(event)
+                    
+                    if let handler = targetHandler {
+                        handler(event)
+                    } else if tabId == nil {
+                        for h in allHandlers {
+                            h(event)
+                        }
+                    }
                 }
                 break
             }

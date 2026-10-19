@@ -28,6 +28,63 @@ public struct AIAssistantView: View {
         VStack(spacing: 0) {
             // Unified Diagnostic & Mode Bar
             VStack(spacing: 8) {
+                // Session Scope Indicator & Selector
+                HStack(spacing: 6) {
+                    Menu {
+                        Button(action: {
+                            aiService.activeSessionId = AIService.clusterSessionId
+                        }) {
+                            Label("🌐 全局集群联合工作区", systemImage: "network")
+                        }
+                        
+                        Divider()
+                        
+                        ForEach(Array(aiService.sessions.values)) { sess in
+                            if sess.id != AIService.clusterSessionId {
+                                Button(action: {
+                                    aiService.activeSessionId = sess.id
+                                }) {
+                                    HStack {
+                                        Label(sess.title, systemImage: "terminal")
+                                        if sess.isGenerating {
+                                            Text("(生成中...)")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: aiService.activeSessionId == AIService.clusterSessionId ? "network" : "terminal")
+                                .font(.system(size: 10))
+                                .foregroundColor(.accentColor)
+                            Text(aiService.currentSessionTitle)
+                                .font(.system(size: 11, weight: .semibold))
+                                .lineLimit(1)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8))
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(5)
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                    
+                    Spacer()
+                    
+                    // Provider badge
+                    Text(aiService.config.provider.rawValue)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.08))
+                        .cornerRadius(4)
+                }
+                
                 HStack(spacing: 6) {
                     // Mode selector segmented buttons
                     HStack(spacing: 2) {
@@ -59,14 +116,14 @@ public struct AIAssistantView: View {
                     
                     Spacer()
                     
-                    // Provider badge
-                    Text(aiService.config.provider.rawValue)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.secondary.opacity(0.08))
-                        .cornerRadius(4)
+                    if aiService.isGenerating {
+                        HStack(spacing: 4) {
+                            ProgressView().scaleEffect(0.5)
+                            Text("分析中...")
+                                .font(.system(size: 10))
+                                .foregroundColor(.purple)
+                        }
+                    }
                 }
                 
                 // One-click diagnosis button
@@ -218,7 +275,8 @@ public struct AIAssistantView: View {
         let buffer = activeTerminalGetter()?.extractRecentBuffer(maxLines: 500) ?? ""
         aiService.send(
             userText: "请深度分析我当前终端的历史回滚日志与上下文，排查所有错误、异常与潜在隐患，并给出可行的修复命令和操作方案：",
-            terminalContext: buffer
+            terminalContext: buffer,
+            targetSessionId: aiService.activeSessionId
         )
     }
     
@@ -236,9 +294,11 @@ public struct AIAssistantView: View {
             combinedContext += "\n"
         }
         
+        aiService.selectSession(tabId: AIService.clusterSessionId, title: "🌐 全局集群联合工作区")
         aiService.send(
             userText: "我当前正在远程管理同一个局域网/业务集群下的多台协同设备。请结合以下各个节点的日志输出，从网络拓扑、上下游服务调用、链路通断与分布式依赖的角度进行联合关联诊断，定位导致异常的源头节点，并给出各节点的针对性修复方案：",
-            terminalContext: combinedContext
+            terminalContext: combinedContext,
+            targetSessionId: AIService.clusterSessionId
         )
     }
     
@@ -246,7 +306,7 @@ public struct AIAssistantView: View {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         inputText = ""
-        aiService.send(userText: text)
+        aiService.send(userText: text, targetSessionId: aiService.activeSessionId)
     }
 }
 

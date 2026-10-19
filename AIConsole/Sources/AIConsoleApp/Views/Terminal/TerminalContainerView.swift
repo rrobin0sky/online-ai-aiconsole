@@ -4,6 +4,7 @@ import SwiftTerm
 
 public struct TerminalContainerView: NSViewRepresentable {
     public let session: SessionItem
+    public let tabId: UUID?
     public let theme: TerminalTheme
     public let fontSize: CGFloat
     public var existingTerminal: CustomTerminalView?
@@ -13,6 +14,7 @@ public struct TerminalContainerView: NSViewRepresentable {
     
     public init(
         session: SessionItem,
+        tabId: UUID? = nil,
         theme: TerminalTheme = .defaultTheme,
         fontSize: CGFloat = 13.0,
         existingTerminal: CustomTerminalView? = nil,
@@ -21,6 +23,7 @@ public struct TerminalContainerView: NSViewRepresentable {
         onFocused: (() -> Void)? = nil
     ) {
         self.session = session
+        self.tabId = tabId
         self.theme = theme
         self.fontSize = fontSize
         self.existingTerminal = existingTerminal
@@ -31,6 +34,7 @@ public struct TerminalContainerView: NSViewRepresentable {
     
     public func makeNSView(context: Context) -> CustomTerminalView {
         if let existing = existingTerminal {
+            existing.tabId = tabId
             existing.applyTheme(theme)
             existing.applyFontSize(fontSize)
             existing.onDirectoryChanged = onDirectoryChanged
@@ -41,6 +45,7 @@ public struct TerminalContainerView: NSViewRepresentable {
             return existing
         }
         let terminalView = CustomTerminalView(frame: .zero)
+        terminalView.tabId = tabId
         terminalView.applyTheme(theme)
         terminalView.applyFontSize(fontSize)
         terminalView.onDirectoryChanged = onDirectoryChanged
@@ -53,6 +58,7 @@ public struct TerminalContainerView: NSViewRepresentable {
     }
     
     public func updateNSView(_ nsView: CustomTerminalView, context: Context) {
+        nsView.tabId = tabId
         nsView.applyTheme(theme)
         nsView.applyFontSize(fontSize)
         nsView.onDirectoryChanged = onDirectoryChanged
@@ -90,14 +96,21 @@ final class ProcessDelegateBridge: NSObject, LocalProcessTerminalViewDelegate {
 }
 
 public final class CustomTerminalView: LocalProcessTerminalView {
+    public var tabId: UUID?
     public var currentSession: SessionItem?
-    public var isRecording: Bool = false
+    public var isRecording: Bool {
+        guard let tid = tabId else { return false }
+        return RecordingManager.shared.isRecording(tabId: tid)
+    }
     public var recordedTranscript: [String] = []
     public var currentWorkingDirectory: String = "~"
     public var onDirectoryChanged: ((String) -> Void)?
     public var onFocused: (() -> Void)?
     
-    public var recordingFileURL: URL?
+    public var recordingFileURL: URL? {
+        guard let tid = tabId else { return nil }
+        return RecordingManager.shared.recordingState(for: tid)?.fileURL
+    }
     private var recordingFileHandle: FileHandle?
     
     private var sessionHistoryRing: [String] = []
@@ -140,22 +153,14 @@ public final class CustomTerminalView: LocalProcessTerminalView {
             sessionHistoryRing.append(rawText)
         }
         
-        // 1. Realtime Crash-Proof Session Recording Streamed to Disk (Clean Human-Readable Text)
-        if isRecording, let handle = recordingFileHandle {
-            let cleaned = TerminalTextSanitizer.clean(rawText)
-            if !cleaned.isEmpty {
-                if let data = cleaned.data(using: .utf8) {
-                    _ = try? handle.seekToEnd()
-                    try? handle.write(contentsOf: data)
-                    try? handle.synchronize()
-                }
-                recordedTranscript.append(cleaned)
-            }
+        // 1. Centralized Realtime Crash-Proof Session Recording (RecordingManager)
+        if let tid = self.tabId, !rawText.isEmpty {
+            RecordingManager.shared.appendChunk(tabId: tid, rawChunk: rawText)
         }
         
-        // 2. Realtime AI Error & Anomaly Detection
+        // 2. Realtime AI Error & Anomaly Detection (Tab-scoped event routing)
         if !rawText.isEmpty {
-            TerminalErrorDetector.shared.processOutput(chunk: rawText) { [weak self] in
+            TerminalErrorDetector.shared.processOutput(tabId: self.tabId, chunk: rawText) { [weak self] in
                 self?.extractRecentBuffer(maxLines: 80) ?? ""
             }
         }
@@ -347,8 +352,8 @@ public final class CustomTerminalView: LocalProcessTerminalView {
         echo "波特率: $BAUD bps (8-N-1)"
         echo "--------------------------------------------------------"
         
-        if [ -z "$DEV" ] || [ ! -e "$DEV" ]; then
-            echo "\\033[31;1m[❌ 错误] 未找到串口设备: $DEV\\033[0m"
+        if [ -z "$DEV" ]; then
+            echo "\\033[31;1m[❌ 错误] 未指定串口设备路径\\033[0m"
             echo "请检查 USB-to-Console 数据线是否牢固插入 Mac。"
             echo "当前系统中检测到的可用串口设备:"
             ls -l /dev/cu.* 2>/dev/null || echo "无可用设备"
@@ -358,38 +363,38 @@ public final class CustomTerminalView: LocalProcessTerminalView {
             exec "\(shell)" -l
         fi
         
-        # 检查端口是否被外部程序独占占用 (例如 Stacio, screen, minicom 等)
-        OCCUPIER=$(lsof "$DEV" 2>/dev/null | awk 'NR>1 {print $1, "(PID " $2 ")"}')
-        if [ -n "$OCCUPIER" ]; then
-            echo "\\033[31;1m[⚠️ 串口独占占用提示]\\033[0m 串口设备正被以下外部程序使用："
-            echo "👉 \\033[33;1m$OCCUPIER\\033[0m"
-            echo ""
-            echo "在 macOS 系统中，串口同一时刻只允许一个应用打开独占访问。"
-            echo "\\033[32;1m[快速解决办法]\\033[0m:"
-            echo "  • 请彻底关闭该程序（如 Stacio、SecureCRT 等）；"
-            echo "  • 或者输入 \\033[1;31mk\\033[0m 强行结束占用进程并立即连入串口。"
-            echo "--------------------------------------------------------"
-            echo -n "输入 'k' 强行释放端口并继续，或按回车进入排查模式: "
-            read -r choice
-            if [ "$choice" = "k" ] || [ "$choice" = "K" ]; then
+        # 串口热插拔与自动重连循环守护 (即使设备掉电、冷重启或重新插拔也不会退出会话)
+        while true; do
+            if [ ! -e "$DEV" ]; then
+                echo "\\033[33;1m[AIConsole 串口]\\033[0m 设备 $DEV 当前处于离线状态 (设备可能正在掉电、冷启动或重启)..."
+                echo "正在持续监听设备上线并准备自动恢复连入..."
+                while [ ! -e "$DEV" ]; do
+                    sleep 0.5
+                done
+                echo "\\033[32;1m[AIConsole 串口]\\033[0m 重新检测到串口设备，正在自动连入控制台..."
+                sleep 0.3
+            fi
+            
+            # 检查端口是否被外部程序独占占用
+            OCCUPIER=$(lsof "$DEV" 2>/dev/null | awk 'NR>1 {print $1, "(PID " $2 ")"}')
+            if [ -n "$OCCUPIER" ]; then
                 PIDS=$(lsof -t "$DEV" 2>/dev/null)
                 if [ -n "$PIDS" ]; then
                     kill -9 $PIDS 2>/dev/null
-                    sleep 0.5
-                    echo "\\033[32m已成功释放串口，正在连入...\\033[0m"
+                    sleep 0.3
                 fi
-            else
-                exec "\(shell)" -l
             fi
-        fi
-        
-        echo "\\033[32;1m[✅ 串口准备就绪]\\033[0m 正在接入设备控制台..."
-        echo "\\033[33;1m[💡 重点提示]\\033[0m"
-        echo "  • 连接 FortiGate 防火墙或 Cisco 交换机时，接入后请立刻按 \\033[1;4m1 ~ 2 次 [Enter/回车键]\\033[0m 唤醒登录提示符。"
-        echo "  • 退出串口请按: \\033[1mCtrl + A\\033[0m 然后按 \\033[1mK\\033[0m (按 y 确认) 即可安全断开。"
-        echo "--------------------------------------------------------"
-        sleep 0.5
-        exec /usr/bin/screen -fn "$DEV" "$BAUD"
+            
+            echo "\\033[32;1m[✅ 串口已连接]\\033[0m 设备控制台就绪 (退出请按 Ctrl+A 然后按 K)。"
+            /usr/bin/screen -fn "$DEV" "$BAUD"
+            RET=$?
+            if [ $RET -eq 0 ]; then
+                echo "\\033[32m[串口安全退出]\\033[0m 会话已正常关闭。"
+                break
+            fi
+            echo "\\033[33;1m[⚠️ 串口中断]\\033[0m 串口通信中断或设备重启 (退出码: $RET)。1 秒后自动重试重连..."
+            sleep 1
+        done
         """
         
         startProcess(executable: "/bin/zsh", args: ["-c", script], environment: environment, execName: "serial-console")
@@ -466,98 +471,33 @@ public final class CustomTerminalView: LocalProcessTerminalView {
     // MARK: - Crash-Proof Realtime Recording & Exporting
     
     public func startRecording(sessionName: String, completion: @escaping (Bool, URL?) -> Void) {
-        let savePanel = NSSavePanel()
-        savePanel.title = "选择会话日志实时保存位置 (防死机实时写入)"
-        savePanel.prompt = "开始实时录制"
-        savePanel.allowedContentTypes = [.plainText]
-        
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        let safeName = sessionName.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "-")
-        savePanel.nameFieldStringValue = "AIConsole-\(safeName)-\(formatter.string(from: Date())).log"
-        
-        let targetWindow = self.window ?? NSApp.keyWindow ?? NSApp.mainWindow
-        
-        let onChosenURL: (URL) -> Void = { [weak self] url in
-            guard let self = self else { return }
-            do {
-                if !FileManager.default.fileExists(atPath: url.path) {
-                    FileManager.default.createFile(atPath: url.path, contents: nil)
-                }
-                let handle = try FileHandle(forWritingTo: url)
-                handle.seekToEndOfFile()
-                
-                let headerFormatter = DateFormatter()
-                headerFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                
-                var headerText = "====================================================\n"
-                headerText += " AIConsole 终端实时审计日志 (Crash-Proof)\n"
-                headerText += " 会话名称: \(self.currentSession?.name ?? sessionName)\n"
-                headerText += " 协议类型: \(self.currentSession?.protocolType.rawValue ?? "SSH")\n"
-                headerText += " 主机/地址: \(self.currentSession?.host ?? ""):\(self.currentSession?.port ?? 22)\n"
-                headerText += " 当前目录: \(self.currentWorkingDirectory)\n"
-                headerText += " 开始录制时间: \(headerFormatter.string(from: Date()))\n"
-                headerText += "====================================================\n\n"
-                
-                if let headerData = headerText.data(using: .utf8) {
-                    handle.write(headerData)
-                    handle.synchronizeFile()
-                }
-                
-                self.recordedTranscript.removeAll()
-                self.recordingFileHandle = handle
-                self.recordingFileURL = url
-                self.isRecording = true
-                completion(true, url)
-            } catch {
-                let alert = NSAlert()
-                alert.messageText = "无法创建日志文件"
-                alert.informativeText = error.localizedDescription
-                alert.alertStyle = .critical
-                alert.runModal()
-                completion(false, nil)
-            }
+        guard let tid = self.tabId else {
+            completion(false, nil)
+            return
         }
-        
-        if let win = targetWindow {
-            savePanel.beginSheetModal(for: win) { response in
-                if response == .OK, let url = savePanel.url {
-                    onChosenURL(url)
-                } else {
-                    completion(false, nil)
-                }
-            }
-        } else {
-            savePanel.begin { response in
-                if response == .OK, let url = savePanel.url {
-                    onChosenURL(url)
-                } else {
-                    completion(false, nil)
-                }
-            }
+        var meta: [String: String] = [:]
+        if let s = currentSession {
+            meta["协议类型"] = s.protocolType.rawValue
+            meta["主机地址"] = "\(s.host):\(s.port)"
         }
+        meta["当前工作目录"] = currentWorkingDirectory
+        
+        RecordingManager.shared.startRecording(
+            tabId: tid,
+            sessionName: sessionName,
+            targetWindow: self.window,
+            initialMetadata: meta,
+            completion: completion
+        )
     }
     
+    @discardableResult
     public func stopRecording() -> URL? {
-        guard isRecording, let handle = recordingFileHandle, let url = recordingFileURL else {
-            isRecording = false
-            return nil
+        guard let tid = self.tabId else { return nil }
+        let url = RecordingManager.shared.stopRecording(tabId: tid)
+        if let u = url {
+            NSWorkspace.shared.activateFileViewerSelecting([u])
         }
-        
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        let footerText = "\n\n=== ⏹ 结束会话录制 [\(formatter.string(from: Date()))] ===\n"
-        if let footerData = footerText.data(using: .utf8) {
-            handle.write(footerData)
-            handle.synchronizeFile()
-        }
-        
-        try? handle.close()
-        self.recordingFileHandle = nil
-        self.isRecording = false
-        
-        // Auto locate in Finder
-        NSWorkspace.shared.activateFileViewerSelecting([url])
         return url
     }
     
@@ -653,4 +593,25 @@ public final class CustomTerminalView: LocalProcessTerminalView {
             self.window?.makeFirstResponder(self)
         }
     }
+    
+    // MARK: - Hardware & Serial Engineering Helpers
+    
+    public func sendWakeupKeys() {
+        sendCommand(command: "\r\n\r\n", autoExecute: false)
+    }
+    
+    public func sendStopAutoboot() {
+        for i in 0..<8 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.08) { [weak self] in
+                self?.sendCommand(command: " \r\n", autoExecute: false)
+            }
+        }
+    }
+    
+    public func sendBreakSignal() {
+        // Send Ctrl+C / ETX interrupt byte to trigger break condition
+        let bytes: [UInt8] = [0x03]
+        self.send(data: bytes[...])
+    }
 }
+

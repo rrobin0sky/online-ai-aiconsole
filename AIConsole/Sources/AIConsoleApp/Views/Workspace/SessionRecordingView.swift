@@ -4,47 +4,109 @@ import AppKit
 public struct SessionRecordingView: View {
     public let activeTerminalGetter: () -> CustomTerminalView?
     public let currentSession: SessionItem?
+    public let activeTabId: UUID?
     
-    @State private var isRecording: Bool = false
-    @State private var recordingFileURL: URL?
-    @State private var recordedText: String = ""
-    @State private var recordingStartTime: Date?
-    @State private var elapsedTimeString: String = "00:00"
+    @ObservedObject private var recordingManager = RecordingManager.shared
     @State private var autoScrollToBottom: Bool = true
     @State private var copiedToast: Bool = false
+    @State private var previewTargetTabId: UUID?
     
     private let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
     
     public init(
         activeTerminalGetter: @escaping () -> CustomTerminalView?,
-        currentSession: SessionItem?
+        currentSession: SessionItem?,
+        activeTabId: UUID? = nil
     ) {
         self.activeTerminalGetter = activeTerminalGetter
         self.currentSession = currentSession
+        self.activeTabId = activeTabId
+    }
+    
+    private var effectiveTabId: UUID? {
+        previewTargetTabId ?? activeTabId
+    }
+    
+    private var currentState: ActiveRecordingState? {
+        guard let tid = effectiveTabId else { return nil }
+        return recordingManager.recordingState(for: tid)
+    }
+    
+    private var isCurrentlyRecording: Bool {
+        guard let tid = effectiveTabId else { return false }
+        return recordingManager.isRecording(tabId: tid)
+    }
+    
+    private var recordedText: String {
+        guard let state = currentState else { return "" }
+        return state.recentTranscript.joined(separator: "\n")
     }
     
     public var body: some View {
         VStack(spacing: 0) {
             // Header Stats & Session Target
             VStack(spacing: 8) {
+                // Multi-Recording Switcher (If multiple tabs are recording)
+                let allActive = Array(recordingManager.activeRecordings.values)
+                if allActive.count > 1 {
+                    HStack(spacing: 6) {
+                        Image(systemName: "recordingtape")
+                            .font(.system(size: 10))
+                            .foregroundColor(.red)
+                        Text("多会话录制中心 (共 \(allActive.count) 个后台录制):")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Menu {
+                            ForEach(allActive) { rec in
+                                Button(action: {
+                                    previewTargetTabId = rec.id
+                                }) {
+                                    HStack {
+                                        Text("\(rec.sessionName) (\(recordingManager.elapsedTimeString(for: rec.id)))")
+                                        if rec.id == effectiveTabId {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Text(currentState?.sessionName ?? "切换查看")
+                                .font(.system(size: 10, weight: .medium))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.red.opacity(0.12))
+                                .cornerRadius(4)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.top, 2)
+                }
+                
                 HStack {
                     HStack(spacing: 6) {
-                        if isRecording {
+                        if isCurrentlyRecording {
                             Circle()
                                 .fill(Color.red)
                                 .frame(width: 8, height: 8)
-                            Text("正在实时录制")
+                            Text("正在实时流式录制")
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(.red)
                             
-                            Text("(\(elapsedTimeString))")
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundColor(.secondary)
+                            if let tid = effectiveTabId {
+                                Text("(\(recordingManager.elapsedTimeString(for: tid)))")
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
                         } else {
                             Circle()
                                 .fill(Color.secondary.opacity(0.4))
                                 .frame(width: 8, height: 8)
-                            Text("未录制")
+                            Text("当前会话未录制")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(.secondary)
                         }
@@ -64,8 +126,8 @@ public struct SessionRecordingView: View {
                 
                 // Action Buttons Bar
                 HStack(spacing: 8) {
-                    if isRecording {
-                        Button(action: stopRecording) {
+                    if isCurrentlyRecording {
+                        Button(action: stopCurrentRecording) {
                             HStack(spacing: 4) {
                                 Image(systemName: "stop.circle.fill")
                                 Text("停止录制")
@@ -79,7 +141,7 @@ public struct SessionRecordingView: View {
                         }
                         .buttonStyle(.plain)
                         
-                        if let url = recordingFileURL {
+                        if let url = currentState?.fileURL {
                             Button(action: {
                                 NSWorkspace.shared.activateFileViewerSelecting([url])
                             }) {
@@ -94,7 +156,7 @@ public struct SessionRecordingView: View {
                             .help("在访达 Finder 中打开保存的 .log 文件")
                         }
                     } else {
-                        Button(action: startRecording) {
+                        Button(action: startCurrentRecording) {
                             HStack(spacing: 4) {
                                 Image(systemName: "record.circle")
                                     .foregroundColor(.red)
@@ -127,19 +189,6 @@ public struct SessionRecordingView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .disabled(recordedText.isEmpty)
-                    
-                    // Clear preview button
-                    Button(action: {
-                        recordedText = ""
-                        activeTerminalGetter()?.recordedTranscript.removeAll()
-                    }) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 11))
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(recordedText.isEmpty)
-                    .help("清空当前实时预览（不会删除已写入磁盘的日志）")
                 }
             }
             .padding(10)
@@ -159,7 +208,7 @@ public struct SessionRecordingView: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.secondary)
                     
-                    Text("点击上方「开始实时录制」按钮，终端产生的所有输入与输出都将实时显示在此处，并防死机写入本地 .log 文件。")
+                    Text("点击上方「开始实时录制」按钮，终端产生的所有输入与输出都将实时显示在此处，并防死机写入本地 .log 文件。\n支持多 Tab 并发独立录制与毫秒级时间戳注入。")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary.opacity(0.8))
                         .multilineTextAlignment(.center)
@@ -195,13 +244,24 @@ public struct SessionRecordingView: View {
             
             // Bottom Info Bar
             HStack {
-                Text("\(recordedText.components(separatedBy: "\n").count) 行 • \(recordedText.utf8.count) 字节")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                if let st = currentState {
+                    Text("\(st.lineCount) 行 • \(st.byteCount) 字节")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("0 行 • 0 字节")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
                 
                 Spacer()
                 
-                Toggle("自动滚至底部", isOn: $autoScrollToBottom)
+                Toggle("毫秒时间戳", isOn: $recordingManager.includeTimestamps)
+                    .font(.caption2)
+                    .toggleStyle(.checkbox)
+                    .help("在每行日志开头注入 [yyyy-MM-dd HH:mm:ss.SSS] 精准时间戳")
+                
+                Toggle("自动滚底", isOn: $autoScrollToBottom)
                     .font(.caption2)
                     .toggleStyle(.checkbox)
             }
@@ -209,74 +269,42 @@ public struct SessionRecordingView: View {
             .padding(.vertical, 6)
             .background(Color(NSColor.windowBackgroundColor))
         }
-        .onAppear {
-            syncStateFromTerminal()
-        }
         .onReceive(timer) { _ in
-            updateRecordingStateAndTimer()
+            // Trigger UI refresh for elapsed time
+        }
+        .onChange(of: activeTabId) { _, newTabId in
+            // When switching tabs, reset custom target preview unless explicitly pinned
+            previewTargetTabId = nil
         }
     }
     
-    private func syncStateFromTerminal() {
-        guard let term = activeTerminalGetter() else { return }
-        self.isRecording = term.isRecording
-        self.recordingFileURL = term.recordingFileURL
-        if !term.recordedTranscript.isEmpty {
-            self.recordedText = term.recordedTranscript.joined()
-        }
-    }
-    
-    private func updateRecordingStateAndTimer() {
-        guard let term = activeTerminalGetter() else { return }
-        self.isRecording = term.isRecording
-        self.recordingFileURL = term.recordingFileURL
-        
-        // Sync live incoming transcript
-        if !term.recordedTranscript.isEmpty {
-            let full = term.recordedTranscript.joined()
-            if full.count != self.recordedText.count {
-                self.recordedText = full
-            }
-        }
-        
-        if isRecording {
-            if recordingStartTime == nil {
-                recordingStartTime = Date()
-            }
-            if let start = recordingStartTime {
-                let diff = Int(Date().timeIntervalSince(start))
-                let m = diff / 60
-                let s = diff % 60
-                elapsedTimeString = String(format: "%02d:%02d", m, s)
-            }
-        } else {
-            recordingStartTime = nil
-            elapsedTimeString = "00:00"
-        }
-    }
-    
-    private func startRecording() {
-        guard let term = activeTerminalGetter() else { return }
+    private func startCurrentRecording() {
+        guard let tid = effectiveTabId else { return }
         let sessionName = currentSession?.name ?? "Terminal"
-        self.recordedText = ""
-        term.startRecording(sessionName: sessionName) { started, url in
-            DispatchQueue.main.async {
-                self.isRecording = started
-                self.recordingFileURL = url
-                if started {
-                    self.recordingStartTime = Date()
-                    self.recordedText = ""
-                }
-            }
+        let term = activeTerminalGetter()
+        
+        var meta: [String: String] = [:]
+        if let s = currentSession {
+            meta["协议类型"] = s.protocolType.rawValue
+            meta["主机地址"] = "\(s.host):\(s.port)"
+        }
+        if let dir = term?.currentWorkingDirectory {
+            meta["当前目录"] = dir
+        }
+        
+        recordingManager.startRecording(
+            tabId: tid,
+            sessionName: sessionName,
+            targetWindow: term?.window,
+            initialMetadata: meta
+        ) { started, url in
+            // State updated in RecordingManager
         }
     }
     
-    private func stopRecording() {
-        guard let term = activeTerminalGetter() else { return }
-        let url = term.stopRecording()
-        self.isRecording = false
-        self.recordingFileURL = url
-        self.recordingStartTime = nil
+    private func stopCurrentRecording() {
+        guard let tid = effectiveTabId else { return }
+        _ = recordingManager.stopRecording(tabId: tid)
     }
     
     private func copyRecordedContent() {

@@ -5,9 +5,11 @@ public struct TerminalSplitView: View {
     @ObservedObject private var sessionStore: SessionStore = .shared
     @ObservedObject private var themeStore: ThemeStore = .shared
     
+    public let tabId: UUID
     let session: SessionItem
     let onDirectoryChanged: ((String) -> Void)?
     let onTerminalReady: ((CustomTerminalView) -> Void)?
+    let onActiveTerminalChanged: ((CustomTerminalView) -> Void)?
     let onDiagnoseRequested: ((String) -> Void)?
     
     @State private var isSplit: Bool = false
@@ -36,14 +38,18 @@ public struct TerminalSplitView: View {
     @State private var activeErrorEvent: DetectedErrorEvent?
     
     public init(
+        tabId: UUID = UUID(),
         session: SessionItem,
         onDirectoryChanged: ((String) -> Void)? = nil,
         onTerminalReady: ((CustomTerminalView) -> Void)? = nil,
+        onActiveTerminalChanged: ((CustomTerminalView) -> Void)? = nil,
         onDiagnoseRequested: ((String) -> Void)? = nil
     ) {
+        self.tabId = tabId
         self.session = session
         self.onDirectoryChanged = onDirectoryChanged
         self.onTerminalReady = onTerminalReady
+        self.onActiveTerminalChanged = onActiveTerminalChanged
         self.onDiagnoseRequested = onDiagnoseRequested
     }
     
@@ -151,6 +157,69 @@ public struct TerminalSplitView: View {
                 )
             }
             
+            // Dedicated Serial Engineering Quick Action Bar (Only for serial protocol)
+            if session.protocolType == .serial {
+                HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "cpu")
+                            .font(.system(size: 10))
+                        Text("串口硬件调测:")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundColor(.secondary)
+                    
+                    Button(action: {
+                        let target = (activePane == 1 ? primaryTerminal : secondaryTerminal) ?? primaryTerminal
+                        target?.sendWakeupKeys()
+                        HapticFeedbackHelper.shared.performGeneric()
+                    }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "bolt.fill")
+                            Text("唤醒终端 (Enter x2)")
+                        }
+                        .font(.system(size: 10, weight: .medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    .help("向串口发送两次回车，唤醒交换机或嵌入式 Linux 控制台提示符")
+                    
+                    Button(action: {
+                        let target = (activePane == 1 ? primaryTerminal : secondaryTerminal) ?? primaryTerminal
+                        target?.sendStopAutoboot()
+                        HapticFeedbackHelper.shared.performGeneric()
+                    }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "hand.raised.fill")
+                            Text("打断引导 (Autoboot)")
+                        }
+                        .font(.system(size: 10, weight: .medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    .help("在设备开机阶段高频发送空格与回车，抢占打断 U-Boot/BIOS 倒计时进入引导终端")
+                    
+                    Button(action: {
+                        let target = (activePane == 1 ? primaryTerminal : secondaryTerminal) ?? primaryTerminal
+                        target?.sendBreakSignal()
+                        HapticFeedbackHelper.shared.performGeneric()
+                    }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "stop.circle")
+                            Text("发送中断 (Ctrl+C / Break)")
+                        }
+                        .font(.system(size: 10, weight: .medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    .help("发送硬件中断信号 / 终止当前死循环进程")
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.secondary.opacity(0.06))
+            }
+            
             // Terminal Panes (with Drag & Drop upload support & Min Size Protection)
             ZStack {
                 if isSplit {
@@ -251,7 +320,7 @@ public struct TerminalSplitView: View {
                 }
             }
             .onAppear {
-                TerminalErrorDetector.shared.onErrorDetected = { event in
+                TerminalErrorDetector.shared.registerListener(for: tabId) { event in
                     withAnimation(.spring()) {
                         self.activeErrorEvent = event
                     }
@@ -263,6 +332,9 @@ public struct TerminalSplitView: View {
                         }
                     }
                 }
+            }
+            .onDisappear {
+                TerminalErrorDetector.shared.unregisterListener(for: tabId)
             }
             .onDrop(of: [.fileURL], isTargeted: $isDropTarget) { providers in
                 guard let provider = providers.first else { return false }
@@ -296,15 +368,11 @@ public struct TerminalSplitView: View {
     
     private func focusPane(_ paneIndex: Int) {
         self.activePane = paneIndex
-        DispatchQueue.main.async {
-            if paneIndex == 1 {
-                if let pt = primaryTerminal {
-                    pt.window?.makeFirstResponder(pt)
-                }
-            } else {
-                if let st = secondaryTerminal {
-                    st.window?.makeFirstResponder(st)
-                }
+        let target = (paneIndex == 1) ? primaryTerminal : secondaryTerminal
+        if let term = target {
+            onActiveTerminalChanged?(term)
+            DispatchQueue.main.async {
+                term.window?.makeFirstResponder(term)
             }
         }
     }
@@ -317,7 +385,6 @@ public struct TerminalSplitView: View {
             if isSplit {
                 // High-Distinction Pane Header Bar
                 HStack(spacing: 8) {
-                    // Active Status Dot & Pane Name
                     HStack(spacing: 6) {
                         Circle()
                             .fill(isFocused ? Color.green : Color.secondary.opacity(0.4))
@@ -343,7 +410,6 @@ public struct TerminalSplitView: View {
                     Spacer()
                     
                     if !isPrimary {
-                        // Quick Switch Secondary Session Dropdown Menu
                         Menu {
                             Text("— 切换副屏连接会话 —")
                             ForEach(allAvailableSessions) { item in
@@ -404,6 +470,7 @@ public struct TerminalSplitView: View {
             // Persistent Terminal Instance Representation with breathing room padding
             TerminalContainerView(
                 session: targetSession,
+                tabId: tabId,
                 theme: themeStore.currentTheme,
                 fontSize: themeStore.fontSize,
                 existingTerminal: isPrimary ? primaryTerminal : secondaryTerminal,
@@ -415,12 +482,20 @@ public struct TerminalSplitView: View {
                     if isPrimary {
                         self.primaryTerminal = term
                         self.onTerminalReady?(term)
+                        self.onActiveTerminalChanged?(term)
                     } else {
                         self.secondaryTerminal = term
+                        if self.activePane == 2 {
+                            self.onActiveTerminalChanged?(term)
+                        }
                     }
                 },
                 onFocused: {
                     self.activePane = paneIndex
+                    let target = isPrimary ? (self.primaryTerminal) : (self.secondaryTerminal ?? self.primaryTerminal)
+                    if let t = target {
+                        self.onActiveTerminalChanged?(t)
+                    }
                 }
             )
             .padding(.leading, 12)

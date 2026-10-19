@@ -66,22 +66,109 @@ public enum AIDiagnoseMode: String, CaseIterable, Identifiable {
     }
 }
 
+public struct AISessionState: Identifiable {
+    public let id: UUID // Bound to WorkspaceTab.id or clusterSessionId
+    public var title: String
+    public var messages: [ChatMessage]
+    public var diagnoseMode: AIDiagnoseMode
+    public var isGenerating: Bool
+    public var errorMessage: String?
+    public var activeTask: Task<Void, Never>?
+    
+    public init(
+        id: UUID,
+        title: String,
+        messages: [ChatMessage] = [],
+        diagnoseMode: AIDiagnoseMode = .fast,
+        isGenerating: Bool = false,
+        errorMessage: String? = nil,
+        activeTask: Task<Void, Never>? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.messages = messages
+        self.diagnoseMode = diagnoseMode
+        self.isGenerating = isGenerating
+        self.errorMessage = errorMessage
+        self.activeTask = activeTask
+    }
+}
+
 @MainActor
 public final class AIService: ObservableObject {
-    @Published public var config: AIModelConfig = AIModelConfig()
-    @Published public var messages: [ChatMessage] = []
-    @Published public var isGenerating: Bool = false
-    @Published public var errorMessage: String?
-    @Published public var diagnoseMode: AIDiagnoseMode = .fast
+    public static let clusterSessionId = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     
-    private var activeTask: Task<Void, Never>?
+    @Published public var config: AIModelConfig = AIModelConfig()
+    @Published public var sessions: [UUID: AISessionState] = [:]
+    @Published public var activeSessionId: UUID = AIService.clusterSessionId
+    
+    // Convenience Accessors for Current Active Session (Seamless backward compatibility)
+    public var messages: [ChatMessage] {
+        get { sessions[activeSessionId]?.messages ?? [] }
+        set {
+            ensureSessionExists(for: activeSessionId)
+            sessions[activeSessionId]?.messages = newValue
+        }
+    }
+    
+    public var isGenerating: Bool {
+        sessions[activeSessionId]?.isGenerating ?? false
+    }
+    
+    public var errorMessage: String? {
+        sessions[activeSessionId]?.errorMessage
+    }
+    
+    public var diagnoseMode: AIDiagnoseMode {
+        get { sessions[activeSessionId]?.diagnoseMode ?? .fast }
+        set {
+            ensureSessionExists(for: activeSessionId)
+            sessions[activeSessionId]?.diagnoseMode = newValue
+        }
+    }
+    
+    public var currentSessionTitle: String {
+        sessions[activeSessionId]?.title ?? "AI 诊断助手"
+    }
     
     public init() {
         self.config = AIModelConfig.load()
-        self.messages.append(ChatMessage(
-            role: "assistant",
-            content: "你好！我是你的 AI 终端与网络运维助手。当终端遇到报错、日志排查或需要生成运维命令时，随时可以问我。\n已默认启用【⚡ 极速修复】模式（一句话根因 + 直接给修复命令）。所有敏感凭据已自动脱敏保护。"
-        ))
+        // Initialize Default Global Cluster Session
+        let defaultCluster = AISessionState(
+            id: AIService.clusterSessionId,
+            title: "🌐 全局集群联合工作区",
+            messages: [
+                ChatMessage(
+                    role: "assistant",
+                    content: "你好！我是你的 AI 终端与网络运维助手。当终端遇到报错、日志排查或需要生成运维命令时，随时可以问我。\n已默认启用【⚡ 极速修复】模式（一句话根因 + 直接给修复命令）。所有敏感凭据已自动脱敏保护。"
+                )
+            ]
+        )
+        self.sessions[AIService.clusterSessionId] = defaultCluster
+        self.activeSessionId = AIService.clusterSessionId
+    }
+    
+    public func ensureSessionExists(for tabId: UUID, title: String? = nil) {
+        if sessions[tabId] == nil {
+            let sessionTitle = title ?? "终端会话"
+            sessions[tabId] = AISessionState(
+                id: tabId,
+                title: sessionTitle,
+                messages: [
+                    ChatMessage(
+                        role: "assistant",
+                        content: "已为「\(sessionTitle)」建立专属 AI 诊断上下文。在此提问将专注于此终端的上下文与排障记录，不会影响其他窗口。"
+                    )
+                ]
+            )
+        } else if let newTitle = title, !newTitle.isEmpty {
+            sessions[tabId]?.title = newTitle
+        }
+    }
+    
+    public func selectSession(tabId: UUID, title: String? = nil) {
+        ensureSessionExists(for: tabId, title: title)
+        self.activeSessionId = tabId
     }
     
     public func saveConfig() {
@@ -131,24 +218,32 @@ public final class AIService: ObservableObject {
         }
     }
     
-    public func cancelCurrentGeneration() {
-        activeTask?.cancel()
-        activeTask = nil
-        isGenerating = false
-        if let lastIdx = messages.indices.last, messages[lastIdx].role == "assistant" && messages[lastIdx].isStreaming {
-            messages[lastIdx].isStreaming = false
-            messages[lastIdx].commandCards = parseCommandCards(from: messages[lastIdx].content)
+    public func cancelCurrentGeneration(for targetId: UUID? = nil) {
+        let sid = targetId ?? activeSessionId
+        guard var sess = sessions[sid] else { return }
+        sess.activeTask?.cancel()
+        sess.activeTask = nil
+        sess.isGenerating = false
+        
+        if let lastIdx = sess.messages.indices.last, sess.messages[lastIdx].role == "assistant" && sess.messages[lastIdx].isStreaming {
+            sess.messages[lastIdx].isStreaming = false
+            sess.messages[lastIdx].commandCards = parseCommandCards(from: sess.messages[lastIdx].content)
         }
+        sessions[sid] = sess
     }
     
-    public func clearMessagesAndStartNewSession() {
-        cancelCurrentGeneration()
-        messages.removeAll()
-        messages.append(ChatMessage(
-            role: "assistant",
-            content: "已开启全新的 AI 诊断会话（已清除全部历史上下文）。请随时提出新的运维问题或提取终端报错！"
-        ))
-        errorMessage = nil
+    public func clearMessagesAndStartNewSession(for targetId: UUID? = nil) {
+        let sid = targetId ?? activeSessionId
+        cancelCurrentGeneration(for: sid)
+        ensureSessionExists(for: sid)
+        let sTitle = sessions[sid]?.title ?? "终端"
+        sessions[sid]?.messages = [
+            ChatMessage(
+                role: "assistant",
+                content: "已重置「\(sTitle)」的 AI 诊断上下文（已清除历史记录）。请随时提取终端报错或发起新的排查！"
+            )
+        ]
+        sessions[sid]?.errorMessage = nil
     }
     
     /// Log Distillation: Extract error-rich lines to avoid bloated prompt tokens and unfocused responses
@@ -162,7 +257,6 @@ public final class AIService: ObservableObject {
         for (i, line) in lines.enumerated() {
             let lower = line.lowercased()
             if keywords.contains(where: { lower.contains($0) }) {
-                // Include 2 lines before and 2 lines after
                 for offset in -2...2 {
                     let idx = i + offset
                     if idx >= 0 && idx < lines.count {
@@ -172,7 +266,6 @@ public final class AIService: ObservableObject {
             }
         }
         
-        // If not enough error lines detected, take the last 40 lines
         if importantIndices.count < 5 {
             return lines.suffix(40).joined(separator: "\n")
         }
@@ -189,59 +282,63 @@ public final class AIService: ObservableObject {
         return distilled.joined(separator: "\n")
     }
     
-    public func send(userText: String, terminalContext: String? = nil) {
+    public func send(userText: String, terminalContext: String? = nil, targetSessionId: UUID? = nil) {
         guard !userText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let sid = targetSessionId ?? activeSessionId
+        ensureSessionExists(for: sid)
         
         var promptText = userText
         if let context = terminalContext, !context.isEmpty {
-            // 1. Security Redaction
             let redacted = DataRedactor.shared.redact(context)
-            // 2. Intelligent Log Distillation
             let distilled = distillLogs(redacted)
             promptText += "\n\n【终端报错上下文 (智能提纯)】:\n```\n\(distilled)\n```"
         }
         
         let userMsg = ChatMessage(role: "user", content: promptText)
-        messages.append(userMsg)
-        isGenerating = true
-        errorMessage = nil
+        sessions[sid]?.messages.append(userMsg)
+        sessions[sid]?.isGenerating = true
+        sessions[sid]?.errorMessage = nil
         
-        // Append a placeholder assistant message for streaming
         let assistantMsgId = UUID()
         let assistantMsg = ChatMessage(id: assistantMsgId, role: "assistant", content: "", commandCards: nil, isStreaming: true)
-        messages.append(assistantMsg)
+        sessions[sid]?.messages.append(assistantMsg)
         
-        activeTask = Task {
+        let task = Task {
             do {
-                try await performStreamingChatRequest(messageId: assistantMsgId)
+                try await performStreamingChatRequest(sessionId: sid, messageId: assistantMsgId)
             } catch {
                 if Task.isCancelled {
-                    // Canceled by user, keep what was generated
-                    if let idx = self.messages.firstIndex(where: { $0.id == assistantMsgId }) {
-                        self.messages[idx].isStreaming = false
-                        self.messages[idx].commandCards = self.parseCommandCards(from: self.messages[idx].content)
+                    if let s = self.sessions[sid], let idx = s.messages.firstIndex(where: { $0.id == assistantMsgId }) {
+                        self.sessions[sid]?.messages[idx].isStreaming = false
+                        self.sessions[sid]?.messages[idx].commandCards = self.parseCommandCards(from: s.messages[idx].content)
                     }
                 } else {
-                    self.errorMessage = error.localizedDescription
-                    if let idx = self.messages.firstIndex(where: { $0.id == assistantMsgId }) {
-                        if self.messages[idx].content.isEmpty {
-                            self.messages[idx].content = "⚠️ 请求失败: \(error.localizedDescription)\n请在设置中检查 API Key 与 Base URL。"
+                    self.sessions[sid]?.errorMessage = error.localizedDescription
+                    if let s = self.sessions[sid], let idx = s.messages.firstIndex(where: { $0.id == assistantMsgId }) {
+                        if s.messages[idx].content.isEmpty {
+                            self.sessions[sid]?.messages[idx].content = "⚠️ 请求失败: \(error.localizedDescription)\n请在设置中检查 API Key 与 Base URL。"
                         } else {
-                            self.messages[idx].content += "\n\n⚠️ [流式传输中断: \(error.localizedDescription)]"
+                            self.sessions[sid]?.messages[idx].content += "\n\n⚠️ [流式传输中断: \(error.localizedDescription)]"
                         }
-                        self.messages[idx].isStreaming = false
+                        self.sessions[sid]?.messages[idx].isStreaming = false
                     }
                 }
             }
-            self.isGenerating = false
-            self.activeTask = nil
+            self.sessions[sid]?.isGenerating = false
+            self.sessions[sid]?.activeTask = nil
         }
+        
+        sessions[sid]?.activeTask = task
     }
     
-    private func performStreamingChatRequest(messageId: UUID) async throws {
+    private func performStreamingChatRequest(sessionId: UUID, messageId: UUID) async throws {
         let endpoint = config.baseURL.hasSuffix("/") ? "\(config.baseURL)chat/completions" : "\(config.baseURL)/chat/completions"
         guard let url = URL(string: endpoint) else {
             throw URLError(.badURL)
+        }
+        
+        guard let currentMode = sessions[sessionId]?.diagnoseMode else {
+            throw URLError(.unknown)
         }
         
         var request = URLRequest(url: url)
@@ -254,10 +351,11 @@ public final class AIService: ObservableObject {
         request.timeoutInterval = 60
         
         var payloadMessages: [[String: String]] = [
-            ["role": "system", "content": diagnoseMode.systemPrompt]
+            ["role": "system", "content": currentMode.systemPrompt]
         ]
-        // Include recent history excluding streaming placeholder
-        let history = messages.filter { $0.id != messageId }.suffix(6)
+        
+        let sessionMsgs = sessions[sessionId]?.messages ?? []
+        let history = sessionMsgs.filter { $0.id != messageId }.suffix(6)
         for m in history {
             payloadMessages.append(["role": m.role, "content": m.content])
         }
@@ -310,17 +408,16 @@ public final class AIService: ObservableObject {
             
             if let chunk = deltaContent, !chunk.isEmpty {
                 accumulatedText += chunk
-                if let idx = self.messages.firstIndex(where: { $0.id == messageId }) {
-                    self.messages[idx].content = accumulatedText
-                    // Dynamically parse command cards
-                    self.messages[idx].commandCards = self.parseCommandCards(from: accumulatedText)
+                if let s = self.sessions[sessionId], let idx = s.messages.firstIndex(where: { $0.id == messageId }) {
+                    self.sessions[sessionId]?.messages[idx].content = accumulatedText
+                    self.sessions[sessionId]?.messages[idx].commandCards = self.parseCommandCards(from: accumulatedText)
                 }
             }
         }
         
-        if let idx = self.messages.firstIndex(where: { $0.id == messageId }) {
-            self.messages[idx].isStreaming = false
-            self.messages[idx].commandCards = self.parseCommandCards(from: accumulatedText)
+        if let s = self.sessions[sessionId], let idx = s.messages.firstIndex(where: { $0.id == messageId }) {
+            self.sessions[sessionId]?.messages[idx].isStreaming = false
+            self.sessions[sessionId]?.messages[idx].commandCards = self.parseCommandCards(from: accumulatedText)
         }
     }
     

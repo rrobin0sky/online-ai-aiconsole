@@ -40,6 +40,12 @@ if [ -f "AppIcon.icns" ]; then
     cp "AppIcon.icns" "${RESOURCES_DIR}/AppIcon.icns"
 elif [ -f "Resources/AppIcon.icns" ]; then
     cp "Resources/AppIcon.icns" "${RESOURCES_DIR}/AppIcon.icns"
+elif [ -f "Sources/AIConsoleApp/Resources/AppIcon.icns" ]; then
+    cp "Sources/AIConsoleApp/Resources/AppIcon.icns" "${RESOURCES_DIR}/AppIcon.icns"
+fi
+
+if ls "${BIN_DIR}"/*.bundle 1> /dev/null 2>&1; then
+    cp -R "${BIN_DIR}"/*.bundle "${RESOURCES_DIR}/"
 fi
 
 cat << 'PLIST' > "${CONTENTS_DIR}/Info.plist"

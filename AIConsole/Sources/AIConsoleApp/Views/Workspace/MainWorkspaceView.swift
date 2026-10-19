@@ -35,6 +35,7 @@ public struct MainWorkspaceView: View {
     @State private var showNewSessionSheet: Bool = false
     @State private var showNewGroupSheet: Bool = false
     @State private var showQuickPalette: Bool = false
+    @State private var isBroadcastEnabled: Bool = false
     
     // Auto-update uptime timer for active sessions
     @State private var now: Date = Date()
@@ -79,6 +80,7 @@ public struct MainWorkspaceView: View {
                     TabBarView(
                         tabs: $tabs,
                         activeTabId: activeTabId,
+                        isBroadcastEnabled: $isBroadcastEnabled,
                         onSelectTab: { tab in
                             HapticFeedbackHelper.shared.performGeneric()
                             switchToTab(tab.id)
@@ -273,7 +275,8 @@ public struct MainWorkspaceView: View {
                     } else if activeRightTab == .recording {
                         SessionRecordingView(
                             activeTerminalGetter: { activeTerminal },
-                            currentSession: activeTab?.session
+                            currentSession: activeTab?.session,
+                            activeTabId: activeTabId
                         )
                     }
                 }
@@ -379,6 +382,7 @@ public struct MainWorkspaceView: View {
         switch tab.session.protocolType {
         case .ssh, .telnet, .serial, .ble, .local:
             TerminalSplitView(
+                tabId: tab.id,
                 session: tab.session,
                 onDirectoryChanged: { newDir in
                     updateTabDirectory(tabId: tab.id, directory: newDir)
@@ -389,15 +393,20 @@ public struct MainWorkspaceView: View {
                         focusTerminal(termView)
                     }
                 },
+                onActiveTerminalChanged: { activeSubTerm in
+                    self.terminalViews[tab.id] = activeSubTerm
+                },
                 onDiagnoseRequested: { contextSnippet in
                     HapticFeedbackHelper.shared.performAlignment()
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showRightPanel = true
                         activeRightTab = .ai
                     }
+                    aiService.selectSession(tabId: tab.id, title: tab.title)
                     aiService.send(
                         userText: "检测到终端产生报错，请针对以下报错信息进行快速根因分析，并给出修复命令：",
-                        terminalContext: contextSnippet
+                        terminalContext: contextSnippet,
+                        targetSessionId: tab.id
                     )
                 }
             )
@@ -495,6 +504,9 @@ public struct MainWorkspaceView: View {
     
     private func switchToTab(_ tabId: UUID) {
         activeTabId = tabId
+        if let tab = tabs.first(where: { $0.id == tabId }) {
+            aiService.selectSession(tabId: tabId, title: tab.title)
+        }
         if let term = terminalViews[tabId] {
             focusTerminal(term)
         }
@@ -538,9 +550,14 @@ public struct MainWorkspaceView: View {
         let newTab = WorkspaceTab(session: session)
         tabs.append(newTab)
         activeTabId = newTab.id
+        aiService.selectSession(tabId: newTab.id, title: newTab.title)
     }
     
     private func closeTab(_ tab: WorkspaceTab) {
+        // Safe shutdown for active recording stream to prevent truncated logs
+        if RecordingManager.shared.isRecording(tabId: tab.id) {
+            _ = RecordingManager.shared.stopRecording(tabId: tab.id)
+        }
         terminalViews.removeValue(forKey: tab.id)
         
         guard let idx = tabs.firstIndex(where: { $0.id == tab.id }) else { return }
@@ -559,6 +576,17 @@ public struct MainWorkspaceView: View {
     private func executeCommandInActiveTerminal(_ cmd: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(cmd, forType: .string)
+        
+        // Multi-Execution Broadcast Mode: Send simultaneously to all open tabs
+        if isBroadcastEnabled && tabs.count > 1 {
+            for tab in tabs {
+                if let term = terminalViews[tab.id] {
+                    term.sendCommand(command: cmd, autoExecute: true)
+                }
+            }
+            HapticFeedbackHelper.shared.performAlignment()
+            return
+        }
         
         if let term = activeTerminal {
             if let ownerTab = tabs.first(where: { terminalViews[$0.id] == term }), activeTabId != ownerTab.id {
@@ -617,6 +645,7 @@ public struct MainWorkspaceView: View {
 struct TabBarView: View {
     @Binding var tabs: [WorkspaceTab]
     let activeTabId: UUID?
+    @Binding var isBroadcastEnabled: Bool
     let onSelectTab: (WorkspaceTab) -> Void
     let onCloseTab: (WorkspaceTab) -> Void
     let onNewTab: () -> Void
@@ -625,6 +654,7 @@ struct TabBarView: View {
     let onToggleRightPanel: () -> Void
     
     @ObservedObject private var themeStore = ThemeStore.shared
+    @ObservedObject private var recordingManager = RecordingManager.shared
     @State private var hoveredTabId: UUID?
     
     var body: some View {
@@ -634,6 +664,7 @@ struct TabBarView: View {
                     ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
                         let isActive = (tab.id == activeTabId)
                         let isHovered = (hoveredTabId == tab.id)
+                        let isRec = recordingManager.isRecording(tabId: tab.id)
                         
                         HStack(spacing: 6) {
                             // Protocol icon
@@ -646,6 +677,22 @@ struct TabBarView: View {
                                 .font(.system(size: 12, weight: isActive ? .medium : .regular))
                                 .foregroundColor(isActive ? .primary : .secondary)
                                 .lineLimit(1)
+                            
+                            // Pulsing Recording Indicator
+                            if isRec {
+                                HStack(spacing: 2) {
+                                    Circle()
+                                        .fill(Color.red)
+                                        .frame(width: 5, height: 5)
+                                    Text("REC")
+                                        .font(.system(size: 8, weight: .heavy, design: .monospaced))
+                                        .foregroundColor(.red)
+                                }
+                                .padding(.horizontal, 3)
+                                .padding(.vertical, 1)
+                                .background(Color.red.opacity(0.12))
+                                .cornerRadius(3)
+                            }
                             
                             // Close button (show on hover or when multiple tabs)
                             Button(action: { onCloseTab(tab) }) {
@@ -693,6 +740,30 @@ struct TabBarView: View {
             }
             
             Spacer()
+            
+            // Broadcast Multi-Execution Button
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isBroadcastEnabled.toggle()
+                }
+                HapticFeedbackHelper.shared.performAlignment()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: isBroadcastEnabled ? "antenna.radiowaves.left.and.right" : "dot.radiowaves.up.forward")
+                        .font(.system(size: 11))
+                    if isBroadcastEnabled {
+                        Text("广播同步中")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                }
+                .foregroundColor(isBroadcastEnabled ? .orange : .secondary)
+                .padding(.horizontal, isBroadcastEnabled ? 8 : 6)
+                .padding(.vertical, 4)
+                .background(isBroadcastEnabled ? Color.orange.opacity(0.18) : Color.secondary.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .buttonStyle(.plain)
+            .help(isBroadcastEnabled ? "广播模式已开启：执行命令将同步打入所有已打开的终端" : "开启广播同步模式：将命令同时打入所有终端")
             
             // Inspector Toggle Button (Apple Standard)
             Button(action: onToggleRightPanel) {
