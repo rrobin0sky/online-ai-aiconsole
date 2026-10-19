@@ -27,23 +27,29 @@ public struct SidebarView: View {
     public var body: some View {
         VStack(spacing: 0) {
             // Header / Search Bar & Quick Add Menu
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                    .font(.system(size: 12))
-                
-                TextField("搜索会话 (名称/IP/端口)...", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                
-                if !searchText.isEmpty {
-                    Button(action: { searchText = "" }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                            .font(.system(size: 11))
+            HStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 11))
+                    
+                    TextField("搜索会话...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                    
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 11))
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Color.secondary.opacity(0.08))
+                .cornerRadius(7)
                 
                 Menu {
                     Button(action: {
@@ -75,16 +81,19 @@ public struct SidebarView: View {
                         Label("备份导出配置...", systemImage: "square.and.arrow.up")
                     }
                 } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 15))
-                        .foregroundColor(.accentColor)
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 24, height: 24)
+                        .background(Color.secondary.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
                 .help("添加会话或新建分组")
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color(NSColor.controlBackgroundColor))
+            .background(.ultraThinMaterial)
             
             Divider()
             
@@ -128,21 +137,25 @@ public struct SidebarView: View {
                 .padding(.vertical, 6)
                 .padding(.horizontal, 6)
             }
-            .background(Color(NSColor.windowBackgroundColor))
+            .background(Color.clear)
             
             Divider()
             
             // Bottom Status Bar
-            HStack {
+            HStack(spacing: 6) {
+                Image(systemName: "circle.grid.2x2")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                
                 Text("\(totalSessionCount(items: sessionStore.rootItems)) 个会话")
-                    .font(.caption2)
+                    .font(.system(size: 11))
                     .foregroundColor(.secondary)
                 
                 Spacer()
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color(NSColor.controlBackgroundColor))
+            .background(.ultraThinMaterial)
         }
         .sheet(isPresented: $showingEditSheet) {
             SessionEditSheet(
@@ -226,19 +239,19 @@ struct SessionTreeNodeView: View {
                     }
                     .buttonStyle(.plain)
                     
-                    Image(systemName: item.iconName.isEmpty ? "folder.fill" : item.iconName)
-                        .foregroundColor(.yellow)
+                    Image(systemName: item.iconName.isEmpty ? (isExpanded ? "folder.fill" : "folder") : item.iconName)
+                        .foregroundColor(.secondary)
                         .font(.system(size: 13))
                     
                     Text(item.name)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.primary)
                         .lineLimit(1)
                     
                     if let children = item.children {
                         Text("(\(children.count))")
                             .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.secondary.opacity(0.8))
                     }
                     
                     Spacer()
@@ -258,7 +271,7 @@ struct SessionTreeNodeView: View {
                 .padding(.vertical, 5)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(isHovered ? Color.secondary.opacity(0.12) : Color.clear)
+                        .fill(isHovered ? Color.secondary.opacity(0.08) : Color.clear)
                 )
                 .onHover { isHovered = $0 }
                 .contextMenu {
@@ -292,29 +305,34 @@ struct SessionTreeNodeView: View {
             let isSelected = (selectedSessionId == item.id)
             
             HStack(spacing: 8) {
+                // Subtle accent pillar indicator for selected state
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(isSelected ? Color.accentColor : Color.clear)
+                    .frame(width: 3, height: 16)
+                
                 // Color Tag Dot
                 if let hex = item.colorHex {
                     Circle()
                         .fill(Color(NSColor(hex: hex)))
-                        .frame(width: 7, height: 7)
+                        .frame(width: 6, height: 6)
                 }
                 
                 // Protocol Icon
                 Image(systemName: item.iconName.isEmpty ? item.protocolType.iconName : item.iconName)
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundColor(protocolColor(item.protocolType))
-                    .frame(width: 16)
+                    .frame(width: 14)
                 
                 // Details
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.name)
-                        .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
-                        .foregroundColor(isSelected ? .white : .primary)
+                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                        .foregroundColor(.primary)
                         .lineLimit(1)
                     
                     Text(subtitleText(for: item))
                         .font(.system(size: 10))
-                        .foregroundColor(isSelected ? Color.white.opacity(0.8) : .secondary)
+                        .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
                 
@@ -324,17 +342,17 @@ struct SessionTreeNodeView: View {
                     Button(action: { onOpen(item) }) {
                         Image(systemName: "play.circle.fill")
                             .font(.system(size: 13))
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
                     .help("连接会话")
                 }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 6)
             .padding(.vertical, 5)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(isSelected ? Color.accentColor : (isHovered ? Color.secondary.opacity(0.12) : Color.clear))
+                    .fill(isSelected ? Color.accentColor.opacity(0.16) : (isHovered ? Color.secondary.opacity(0.08) : Color.clear))
             )
             .contentShape(Rectangle())
             .onHover { isHovered = $0 }

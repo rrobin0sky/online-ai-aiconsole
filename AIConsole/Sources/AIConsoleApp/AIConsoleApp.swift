@@ -11,7 +11,7 @@ struct AIConsoleApp: App {
                 .frame(minWidth: 1050, minHeight: 680)
         }
         .windowStyle(.titleBar)
-        .windowToolbarStyle(.unified)
+        .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
             // App Core Menu (Settings)
             CommandGroup(replacing: .appSettings) {

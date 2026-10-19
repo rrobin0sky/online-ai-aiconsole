@@ -26,97 +26,112 @@ public struct AIAssistantView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Mode Selector Bar (Fast Fix / Commands Only / Deep Analysis)
-            HStack(spacing: 4) {
-                ForEach(AIDiagnoseMode.allCases) { mode in
-                    let isSelected = (aiService.diagnoseMode == mode)
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            aiService.diagnoseMode = mode
+            // Unified Diagnostic & Mode Bar
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    // Mode selector segmented buttons
+                    HStack(spacing: 2) {
+                        ForEach(AIDiagnoseMode.allCases) { mode in
+                            let isSelected = (aiService.diagnoseMode == mode)
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    aiService.diagnoseMode = mode
+                                }
+                                HapticFeedbackHelper.shared.performGeneric()
+                            }) {
+                                Text(mode.rawValue)
+                                    .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                                    .foregroundColor(isSelected ? .primary : .secondary)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 5)
+                                            .fill(isSelected ? Color(NSColor.controlBackgroundColor) : Color.clear)
+                                            .shadow(color: isSelected ? .black.opacity(0.08) : .clear, radius: 1, y: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
                         }
-                        HapticFeedbackHelper.shared.performGeneric()
-                    }) {
-                        Text(mode.rawValue)
-                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                            .foregroundColor(isSelected ? .primary : .secondary)
+                    }
+                    .padding(2)
+                    .background(Color.secondary.opacity(0.08))
+                    .cornerRadius(6)
+                    
+                    Spacer()
+                    
+                    // Provider badge
+                    Text(aiService.config.provider.rawValue)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.08))
+                        .cornerRadius(4)
+                }
+                
+                // One-click diagnosis button
+                HStack(spacing: 8) {
+                    let allNodes = allTerminalsGetter()
+                    if allNodes.count > 1 {
+                        Menu {
+                            Button(action: diagnoseAllClusterNodes) {
+                                Label("联合诊断全部 \(allNodes.count) 台节点", systemImage: "network")
+                            }
+                            Button(action: diagnoseActiveTerminal) {
+                                Label("仅诊断当前单台节点", systemImage: "display")
+                            }
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "sparkles")
+                                Text("联合诊断集群 (\(allNodes.count)台)")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                        }
+                        .menuStyle(.borderedButton)
+                        .controlSize(.small)
+                        .disabled(aiService.isGenerating)
+                    } else {
+                        Button(action: diagnoseActiveTerminal) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 11))
+                                Text("提取终端上下文一键诊断")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 5)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .tint(Color.accentColor)
+                        .disabled(aiService.isGenerating)
+                    }
+                    
+                    if aiService.isGenerating {
+                        Button(action: {
+                            aiService.cancelCurrentGeneration()
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "stop.fill")
+                                    .font(.system(size: 9))
+                                Text("停止")
+                                    .font(.system(size: 11))
+                            }
+                            .foregroundColor(.red)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(
-                                RoundedRectangle(cornerRadius: 5)
-                                    .fill(isSelected ? Color(NSColor.controlBackgroundColor) : Color.clear)
-                                    .shadow(color: isSelected ? .black.opacity(0.1) : .clear, radius: 1, y: 1)
-                            )
+                            .background(Color.red.opacity(0.12))
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
-                Spacer()
-            }
-            .padding(3)
-            .background(Color.secondary.opacity(0.1))
-            .cornerRadius(7)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            
-            Divider()
-            
-            // Diagnostics Quick Actions Bar (Single-Node vs Multi-Node Cluster)
-            HStack(spacing: 8) {
-                let allNodes = allTerminalsGetter()
-                if allNodes.count > 1 {
-                    Menu {
-                        Button(action: diagnoseAllClusterNodes) {
-                            Label("🌐 联合诊断全部 \(allNodes.count) 台同网段设备", systemImage: "network")
-                        }
-                        Button(action: diagnoseActiveTerminal) {
-                            Label("🖥️ 仅诊断当前单台设备", systemImage: "display")
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "stethoscope")
-                            Text("联合诊断 (\(allNodes.count)台设备)")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                        }
-                    }
-                    .menuStyle(.borderedButton)
-                    .controlSize(.small)
-                    .disabled(aiService.isGenerating)
-                    .help("一键抓取同网络所有已连接设备的输出，进行拓扑关联诊断")
-                } else {
-                    Button(action: diagnoseActiveTerminal) {
-                        Label("提取终端上下文一键诊断", systemImage: "stethoscope")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(aiService.isGenerating)
-                }
-                
-                if aiService.isGenerating {
-                    Button(action: {
-                        aiService.cancelCurrentGeneration()
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "stop.circle.fill")
-                                .foregroundColor(.red)
-                            Text("停止")
-                                .font(.caption)
-                                .foregroundColor(.red)
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-                
-                Spacer()
-                
-                Text(aiService.config.provider.rawValue)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color(NSColor.windowBackgroundColor))
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial)
             
             Divider()
             
@@ -135,6 +150,7 @@ public struct AIAssistantView: View {
                     }
                     .padding(10)
                 }
+                .background(Color.clear)
                 .onChange(of: aiService.messages.last?.content) { _, _ in
                     if let last = aiService.messages.last {
                         proxy.scrollTo(last.id, anchor: .bottom)
@@ -151,53 +167,49 @@ public struct AIAssistantView: View {
             
             Divider()
             
-            // Input Bar
-            VStack(spacing: 4) {
-                HStack(alignment: .bottom, spacing: 8) {
-                    AIAutoGrowTextEditor(
-                        text: $inputText,
-                        placeholder: "输入运维诊断问题、报错排查或命令需求...",
-                        onCommit: sendCurrentMessage
-                    )
-                    .frame(minHeight: 48, maxHeight: 120)
-                    .padding(4)
-                    .background(Color(NSColor.textBackgroundColor))
-                    .cornerRadius(6)
-                    
-                    VStack(spacing: 4) {
-                        if aiService.isGenerating {
-                            Button(action: {
-                                aiService.cancelCurrentGeneration()
-                            }) {
-                                Image(systemName: "stop.circle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.red)
-                            }
-                            .buttonStyle(.plain)
-                            .help("停止当前生成")
-                        } else {
-                            Button(action: sendCurrentMessage) {
-                                Image(systemName: "arrow.up.circle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .secondary : .accentColor)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            .help("发送提问 (Return)")
-                        }
-                    }
-                    .padding(.bottom, 4)
-                }
+            // Refined Native Input Bar
+            HStack(alignment: .bottom, spacing: 8) {
+                AIAutoGrowTextEditor(
+                    text: $inputText,
+                    placeholder: "向 AI 提问或寻求命令诊断... (Return 发送)",
+                    onCommit: sendCurrentMessage
+                )
+                .frame(minHeight: 40, maxHeight: 120)
+                .padding(6)
+                .background(Color.secondary.opacity(0.06))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.secondary.opacity(0.12), lineWidth: 0.5)
+                )
                 
-                HStack {
-                    Text("提示: 按 Return 发送，按 Shift + Return 换行")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                    Spacer()
+                VStack(spacing: 4) {
+                    if aiService.isGenerating {
+                        Button(action: {
+                            aiService.cancelCurrentGeneration()
+                        }) {
+                            Image(systemName: "stop.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.red)
+                        }
+                        .buttonStyle(.plain)
+                        .help("停止当前生成")
+                    } else {
+                        Button(action: sendCurrentMessage) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .secondary.opacity(0.4) : .accentColor)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .help("发送提问 (Return)")
+                    }
                 }
+                .padding(.bottom, 2)
             }
-            .padding(10)
-            .background(Color(NSColor.controlBackgroundColor))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial)
         }
         .frame(minWidth: 320, idealWidth: 360)
     }
@@ -244,31 +256,43 @@ struct ChatMessageRow: View {
     let onInsertCommand: (String) -> Void
     
     var body: some View {
-        VStack(alignment: message.role == "user" ? .trailing : .leading, spacing: 6) {
-            HStack {
-                if message.role == "user" { Spacer() }
-                
-                Text(message.role == "user" ? "我" : "AI Copilot")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                
-                if message.role != "user" { Spacer() }
+        VStack(alignment: message.role == "user" ? .trailing : .leading, spacing: 5) {
+            // Header with subtle icon
+            HStack(spacing: 5) {
+                if message.role == "user" {
+                    Spacer()
+                    Text("我")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Image(systemName: "person.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                } else {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.purple)
+                    Text("AI 运维助手")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
             }
             
             HStack {
-                if message.role == "user" { Spacer() }
+                if message.role == "user" { Spacer(minLength: 40) }
                 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .bottom, spacing: 4) {
-                        Text(message.content.isEmpty && message.isStreaming ? "正在思考与组织诊断内容..." : message.content)
-                            .font(.system(size: 13))
+                        Text(message.content.isEmpty && message.isStreaming ? "正在分析终端上下文并生成方案..." : message.content)
+                            .font(.system(size: 12.5))
+                            .lineSpacing(3)
                             .foregroundColor(message.content.isEmpty && message.isStreaming ? .secondary : .primary)
                             .textSelection(.enabled)
                         
                         if message.isStreaming {
                             Circle()
                                 .fill(Color.accentColor)
-                                .frame(width: 6, height: 6)
+                                .frame(width: 5, height: 5)
                                 .opacity(0.8)
                         }
                     }
@@ -288,10 +312,16 @@ struct ChatMessageRow: View {
                     }
                 }
                 .padding(10)
-                .background(message.role == "user" ? Color.accentColor.opacity(0.2) : Color(NSColor.controlBackgroundColor))
-                .cornerRadius(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(message.role == "user" ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(message.role == "user" ? Color.accentColor.opacity(0.3) : Color.secondary.opacity(0.12), lineWidth: 0.5)
+                )
                 
-                if message.role != "user" { Spacer() }
+                if message.role != "user" { Spacer(minLength: 20) }
             }
         }
     }

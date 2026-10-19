@@ -66,13 +66,14 @@ public struct TerminalSplitView: View {
         VStack(spacing: 0) {
 
             
-            // Interactive Search & Highlight Bar (with Prominent Red Theme)
+            // Interactive Search & Highlight Bar
             if showSearch {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundColor(.red)
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 11))
                     
-                    TextField("输入关键字实时搜索与红色高亮 (Enter 下一个)...", text: $searchText)
+                    TextField("在终端中查找 (Enter 下一个)...", text: $searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12))
                         .focused($isSearchFocused)
@@ -84,19 +85,13 @@ public struct TerminalSplitView: View {
                         }
                     
                     if !searchText.isEmpty {
-                        HStack(spacing: 4) {
-                            Circle()
-                                .fill(searchTotal > 0 ? Color.red : Color.gray)
-                                .frame(width: 6, height: 6)
-                            Text(searchTotal > 0 ? "\(searchIndex)/\(searchTotal) 处匹配" : "无匹配项")
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundColor(searchTotal > 0 ? .white : .secondary)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(searchTotal > 0 ? Color.red : Color.secondary.opacity(0.15))
-                        .cornerRadius(4)
-                        .shadow(color: searchTotal > 0 ? Color.red.opacity(0.4) : Color.clear, radius: 4)
+                        Text(searchTotal > 0 ? "\(searchIndex)/\(searchTotal)" : "无匹配")
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundColor(searchTotal > 0 ? .primary : .secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(searchTotal > 0 ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.1))
+                            .cornerRadius(4)
                     }
                     
                     Button(action: {
@@ -105,10 +100,10 @@ public struct TerminalSplitView: View {
                     }) {
                         Text("Aa")
                             .font(.system(size: 11, weight: isCaseSensitive ? .bold : .regular))
-                            .foregroundColor(isCaseSensitive ? .red : .secondary)
-                            .padding(.horizontal, 4)
+                            .foregroundColor(isCaseSensitive ? .accentColor : .secondary)
+                            .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(isCaseSensitive ? Color.red.opacity(0.15) : Color.clear)
+                            .background(isCaseSensitive ? Color.accentColor.opacity(0.15) : Color.clear)
                             .cornerRadius(3)
                     }
                     .buttonStyle(.plain)
@@ -117,6 +112,7 @@ public struct TerminalSplitView: View {
                     Button(action: findPrevious) {
                         Image(systemName: "chevron.up")
                             .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
                     .disabled(searchTotal == 0)
@@ -125,6 +121,7 @@ public struct TerminalSplitView: View {
                     Button(action: findNext) {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
                     .disabled(searchTotal == 0)
@@ -138,17 +135,18 @@ public struct TerminalSplitView: View {
                     }) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.secondary)
+                            .font(.system(size: 12))
                     }
                     .buttonStyle(.plain)
                     .help("关闭搜索 (ESC)")
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color(NSColor.windowBackgroundColor))
+                .background(.ultraThinMaterial)
                 .overlay(
                     Rectangle()
-                        .frame(height: 1.5)
-                        .foregroundColor(Color.red.opacity(0.8)),
+                        .frame(height: 0.5)
+                        .foregroundColor(Color.secondary.opacity(0.2)),
                     alignment: .bottom
                 )
             }
@@ -425,16 +423,18 @@ public struct TerminalSplitView: View {
                     self.activePane = paneIndex
                 }
             )
-            .padding(.leading, 14)
+            .padding(.leading, 12)
             .padding(.trailing, 8)
             .padding(.vertical, 8)
             .background(Color(themeStore.currentTheme.backgroundColor))
             .opacity(isSplit && !isFocused ? 0.88 : 1.0)
         }
+        .clipShape(RoundedRectangle(cornerRadius: isSplit ? 6 : 8))
         .overlay(
-            isSplit ? RoundedRectangle(cornerRadius: 0)
-                .stroke(isFocused ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: isFocused ? 2.0 : 1.0) : nil
+            RoundedRectangle(cornerRadius: isSplit ? 6 : 8)
+                .stroke(isSplit && isFocused ? Color.accentColor : Color.white.opacity(0.06), lineWidth: isSplit && isFocused ? 1.5 : 0.5)
         )
+        .padding(isSplit ? 4 : 6)
         .onTapGesture {
             focusPane(paneIndex)
         }

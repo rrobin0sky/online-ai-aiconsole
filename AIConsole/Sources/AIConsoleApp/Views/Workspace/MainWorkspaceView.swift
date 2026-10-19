@@ -1,15 +1,15 @@
 import SwiftUI
 
 public enum RightPanelTab: String, CaseIterable, Identifiable {
-    case ai = "AI 运维助手"
-    case snippets = "常用运维命令"
+    case ai = "AI 助手"
+    case snippets = "常用命令"
     case recording = "会话录制"
     
     public var id: String { rawValue }
     public var iconName: String {
         switch self {
         case .ai: return "sparkles"
-        case .snippets: return "command.square.fill"
+        case .snippets: return "terminal"
         case .recording: return "record.circle"
         }
     }
@@ -276,27 +276,27 @@ public struct MainWorkspaceView: View {
                                     }
                                     HapticFeedbackHelper.shared.performGeneric()
                                 }) {
-                                    HStack(spacing: 5) {
+                                    HStack(spacing: 4) {
                                         Image(systemName: tab.iconName)
                                             .font(.system(size: 11))
                                         Text(tab.rawValue)
-                                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                            .font(.system(size: 11, weight: isSelected ? .medium : .regular))
                                     }
                                     .foregroundColor(isSelected ? .primary : .secondary)
-                                    .padding(.horizontal, 9)
-                                    .padding(.vertical, 5)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
                                     .background(
                                         RoundedRectangle(cornerRadius: 6)
                                             .fill(isSelected ? Color(NSColor.controlBackgroundColor) : Color.clear)
-                                            .shadow(color: isSelected ? .black.opacity(0.12) : .clear, radius: 2, y: 1)
+                                            .shadow(color: isSelected ? .black.opacity(0.08) : .clear, radius: 1, y: 1)
                                     )
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                         .padding(2)
-                        .background(Color.secondary.opacity(0.12))
-                        .cornerRadius(8)
+                        .background(Color.secondary.opacity(0.08))
+                        .cornerRadius(7)
                         
                         Spacer()
                         
@@ -308,17 +308,23 @@ public struct MainWorkspaceView: View {
                             }) {
                                 Image(systemName: "plus.bubble")
                                     .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 22, height: 22)
+                                    .background(Color.secondary.opacity(0.06))
+                                    .clipShape(RoundedRectangle(cornerRadius: 5))
                             }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
+                            .buttonStyle(.plain)
                             .help("清空并开启新对话")
                             
                             Button(action: { showSettingsSheet = true }) {
                                 Image(systemName: "gearshape")
                                     .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 22, height: 22)
+                                    .background(Color.secondary.opacity(0.06))
+                                    .clipShape(RoundedRectangle(cornerRadius: 5))
                             }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
+                            .buttonStyle(.plain)
                             .help("配置大模型 API 与服务商")
                         }
                         
@@ -331,16 +337,16 @@ public struct MainWorkspaceView: View {
                             Image(systemName: "xmark")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(.secondary)
-                                .padding(5)
-                                .background(Color.secondary.opacity(0.1))
-                                .clipShape(Circle())
+                                .frame(width: 22, height: 22)
+                                .background(Color.secondary.opacity(0.06))
+                                .clipShape(RoundedRectangle(cornerRadius: 5))
                         }
                         .buttonStyle(.plain)
                         .help("收起右侧检查器")
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
-                    .background(Color(NSColor.windowBackgroundColor))
+                    .background(.ultraThinMaterial)
                     
                     Divider()
                     
@@ -909,20 +915,17 @@ struct TabBarView: View {
     let onOpenPalette: () -> Void
     
     @ObservedObject private var themeStore = ThemeStore.shared
-    @State private var draggedTab: WorkspaceTab?
+    @State private var hoveredTabId: UUID?
     
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 6) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
                     ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
                         let isActive = (tab.id == activeTabId)
+                        let isHovered = (hoveredTabId == tab.id)
+                        
                         HStack(spacing: 6) {
-                            // Activity pulse dot
-                            Circle()
-                                .fill(isActive ? Color.green : Color.secondary.opacity(0.4))
-                                .frame(width: 6, height: 6)
-                            
                             // Protocol icon
                             Image(systemName: tab.session.iconName)
                                 .font(.system(size: 11))
@@ -930,56 +933,50 @@ struct TabBarView: View {
                             
                             // Title
                             Text(tab.title)
-                                .font(.system(size: 12, weight: isActive ? .semibold : .regular))
+                                .font(.system(size: 12, weight: isActive ? .medium : .regular))
+                                .foregroundColor(isActive ? .primary : .secondary)
                                 .lineLimit(1)
                             
-                            // Real Uptime / Duration Badge
-                            HStack(spacing: 2) {
-                                Image(systemName: "clock")
-                                    .font(.system(size: 8))
-                                Text(tab.uptimeFormatted)
-                            }
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(Color.secondary.opacity(0.12))
-                            .cornerRadius(3)
-                            
-                            // Shortcut badge (Cmd+1, Cmd+2 ...)
-                            if index < 9 {
-                                Text("⌘\(index + 1)")
-                                    .font(.system(size: 9, design: .monospaced))
-                                    .foregroundColor(.secondary.opacity(0.7))
-                            }
-                            
-                            // Close button
+                            // Close button (show on hover or when multiple tabs)
                             Button(action: { onCloseTab(tab) }) {
                                 Image(systemName: "xmark")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundColor(.secondary)
-                                    .padding(3)
-                                    .background(Color.secondary.opacity(0.1))
+                                    .frame(width: 14, height: 14)
+                                    .background(Color.secondary.opacity(isHovered || isActive ? 0.12 : 0))
                                     .clipShape(Circle())
                             }
                             .buttonStyle(.plain)
-                            .padding(.leading, 2)
+                            .opacity(isHovered || isActive || tabs.count > 1 ? 1 : 0)
                         }
                         .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 5)
                         .background(
-                            RoundedRectangle(cornerRadius: 7)
-                                .fill(isActive ? Color(NSColor.controlBackgroundColor) : Color.clear)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 7)
-                                        .stroke(isActive ? Color.accentColor.opacity(0.4) : Color.clear, lineWidth: 1)
-                                )
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(isActive ? Color(NSColor.controlBackgroundColor) : (isHovered ? Color.secondary.opacity(0.08) : Color.clear))
+                                .shadow(color: isActive ? Color.black.opacity(0.06) : Color.clear, radius: 1, y: 1)
                         )
                         .contentShape(Rectangle())
+                        .onHover { h in
+                            hoveredTabId = h ? tab.id : nil
+                        }
                         .onTapGesture {
                             onSelectTab(tab)
                         }
                     }
+                    
+                    // New Tab Button right next to tabs
+                    Button(action: onNewTab) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .frame(width: 22, height: 22)
+                            .background(Color.secondary.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                    }
+                    .buttonStyle(.plain)
+                    .help("新建终端标签 (⌘T)")
+                    .padding(.leading, 2)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
@@ -987,7 +984,7 @@ struct TabBarView: View {
             
             Spacer()
         }
-        .background(.regularMaterial)
+        .background(.ultraThinMaterial)
     }
     
     private func protocolColor(_ proto: SessionProtocol) -> Color {
