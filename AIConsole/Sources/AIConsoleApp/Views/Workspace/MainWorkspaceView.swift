@@ -3,12 +3,14 @@ import SwiftUI
 public enum RightPanelTab: String, CaseIterable, Identifiable {
     case ai = "AI 运维助手"
     case snippets = "常用运维命令"
+    case recording = "会话录制"
     
     public var id: String { rawValue }
     public var iconName: String {
         switch self {
         case .ai: return "sparkles"
         case .snippets: return "command.square.fill"
+        case .recording: return "record.circle"
         }
     }
 }
@@ -363,7 +365,7 @@ public struct MainWorkspaceView: View {
                                 insertCommandInActiveTerminal(cmd)
                             }
                         )
-                    } else {
+                    } else if activeRightTab == .snippets {
                         SnippetManagerView(
                             onExecuteCommand: { cmd in
                                 executeCommandInActiveTerminal(cmd)
@@ -371,6 +373,11 @@ public struct MainWorkspaceView: View {
                             onInsertCommand: { cmd in
                                 insertCommandInActiveTerminal(cmd)
                             }
+                        )
+                    } else if activeRightTab == .recording {
+                        SessionRecordingView(
+                            activeTerminalGetter: { activeTerminal },
+                            currentSession: activeTab?.session
                         )
                     }
                 }

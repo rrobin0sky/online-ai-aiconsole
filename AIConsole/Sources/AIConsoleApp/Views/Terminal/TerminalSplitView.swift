@@ -64,134 +64,7 @@ public struct TerminalSplitView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Terminal Top Toolbar
-            HStack(spacing: 8) {
-                if isRecordingSession {
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 8, height: 8)
-                        Text("录制中")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.red)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.red.opacity(0.12))
-                    .cornerRadius(4)
-                }
-                
-                Spacer()
-                
-                // Crash-Proof Live Recording Button
-                Button(action: {
-                    let term = (activePane == 1) ? primaryTerminal : (secondaryTerminal ?? primaryTerminal)
-                    guard let t = term else { return }
-                    if t.isRecording {
-                        _ = t.stopRecording()
-                        self.isRecordingSession = false
-                    } else {
-                        let activeSession = (activePane == 1) ? session : (secondarySession ?? session)
-                        t.startRecording(sessionName: activeSession.name) { started, _ in
-                            self.isRecordingSession = started
-                        }
-                    }
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: isRecordingSession ? "record.circle.fill" : "record.circle")
-                            .foregroundColor(isRecordingSession ? .red : .primary)
-                        Text(isRecordingSession ? "停止录制" : "开始录制")
-                            .font(.caption)
-                    }
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .help(isRecordingSession ? "停止实时录制并在访达中定位日志文件" : "选择保存位置并开启防死机实时写入录制")
-                
-                // Search toggle
-                Button(action: {
-                    showSearch.toggle()
-                    if showSearch {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                            isSearchFocused = true
-                        }
-                    } else {
-                        primaryTerminal?.clearSearch()
-                        secondaryTerminal?.clearSearch()
-                    }
-                }) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(showSearch ? .red : .secondary)
-                }
-                .buttonStyle(.plain)
-                .help("在终端中高亮搜索 (Cmd+F)")
-                
-                // AI Diagnosis Trigger
-                Button(action: {
-                    let term = (activePane == 1) ? primaryTerminal : (secondaryTerminal ?? primaryTerminal)
-                    if let buf = term?.extractRecentBuffer(maxLines: 80), !buf.isEmpty {
-                        onDiagnoseRequested?(buf)
-                    }
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
-                            .foregroundColor(.purple)
-                        Text("AI 诊断")
-                            .font(.caption)
-                    }
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .help("提取当前活跃终端输出进行 AI 根因分析")
-                
-                Divider()
-                    .frame(height: 14)
-                
-                // Split Mode Capsule Controller
-                HStack(spacing: 2) {
-                    Button(action: {
-                        toggleSplitMode(to: .horizontal)
-                    }) {
-                        HStack(spacing: 3) {
-                            Image(systemName: "rectangle.split.2x1")
-                                .font(.system(size: 11))
-                            Text("左右")
-                                .font(.system(size: 10))
-                        }
-                        .foregroundColor(isSplit && splitOrientation == .horizontal ? .white : .secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 4)
-                        .background(isSplit && splitOrientation == .horizontal ? Color.accentColor : Color.clear)
-                        .cornerRadius(4)
-                    }
-                    .buttonStyle(.plain)
-                    .help("左右并排分屏 (再次点击还原单屏)")
-                    
-                    Button(action: {
-                        toggleSplitMode(to: .vertical)
-                    }) {
-                        HStack(spacing: 3) {
-                            Image(systemName: "rectangle.split.1x2")
-                                .font(.system(size: 11))
-                            Text("上下")
-                                .font(.system(size: 10))
-                        }
-                        .foregroundColor(isSplit && splitOrientation == .vertical ? .white : .secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 4)
-                        .background(isSplit && splitOrientation == .vertical ? Color.accentColor : Color.clear)
-                        .cornerRadius(4)
-                    }
-                    .buttonStyle(.plain)
-                    .help("上下堆叠分屏 (再次点击还原单屏)")
-                }
-                .padding(2)
-                .background(Color.secondary.opacity(0.12))
-                .cornerRadius(6)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(Color(NSColor.controlBackgroundColor))
+
             
             // Interactive Search & Highlight Bar (with Prominent Red Theme)
             if showSearch {
@@ -278,10 +151,7 @@ public struct TerminalSplitView: View {
                         .foregroundColor(Color.red.opacity(0.8)),
                     alignment: .bottom
                 )
-                Divider()
             }
-            
-            Divider()
             
             // Terminal Panes (with Drag & Drop upload support & Min Size Protection)
             ZStack {
