@@ -386,7 +386,9 @@ public final class CustomTerminalView: LocalProcessTerminalView {
             fi
             
             echo "\\033[32;1m[✅ 串口已连接]\\033[0m 设备控制台就绪 (退出请按 Ctrl+A 然后按 K)。"
-            /usr/bin/screen -fn "$DEV" "$BAUD"
+            SCREENRC_TEMP="/tmp/.aiconsole_screenrc"
+            echo "termcapinfo xterm* ti@:te@" > "$SCREENRC_TEMP"
+            /usr/bin/screen -c "$SCREENRC_TEMP" -fn "$DEV" "$BAUD"
             RET=$?
             if [ $RET -eq 0 ]; then
                 echo "\\033[32m[串口安全退出]\\033[0m 会话已正常关闭。"
