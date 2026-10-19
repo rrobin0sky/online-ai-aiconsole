@@ -31,12 +31,6 @@ public struct MainWorkspaceView: View {
     
     @State private var showRightPanel: Bool = false
     @State private var activeRightTab: RightPanelTab = .ai
-    @State private var isMultiExecEnabled: Bool = false
-    @State private var broadcastCommandText: String = ""
-    @State private var enableLiveKeyboardMirroring: Bool = true
-    @State private var broadcastTargetTabIds: Set<UUID> = []
-    @State private var broadcastFeedback: String? = nil
-    
     @State private var showSettingsSheet: Bool = false
     @State private var showNewSessionSheet: Bool = false
     @State private var showNewGroupSheet: Bool = false
@@ -47,10 +41,6 @@ public struct MainWorkspaceView: View {
     private let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
     
     public init() {}
-    
-    private var broadcastEligibleTabs: [WorkspaceTab] {
-        tabs.filter { $0.session.protocolType.isTerminalSupported }
-    }
     
     private var activeTab: WorkspaceTab? {
         tabs.first(where: { $0.id == activeTabId })
@@ -103,100 +93,28 @@ public struct MainWorkspaceView: View {
                             withAnimation(.spring()) {
                                 showQuickPalette.toggle()
                             }
+                        },
+                        showRightPanel: $showRightPanel,
+                        onToggleRightPanel: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showRightPanel.toggle()
+                            }
                         }
                     )
                     
                     Divider()
                     
-                    // Main Terminal Canvas with Floating Broadcast HUD
-                    ZStack(alignment: .top) {
-                        // Canvas Area
-                        ZStack {
-                            if tabs.isEmpty {
-                                EmptyStateView(
-                                    onLaunchLocalTerminal: {
-                                        launchLocalTerminal()
-                                    },
-                                    onNewSession: {
-                                        showNewSessionSheet = true
-                                    }
-                                )
-                            } else {
-                                ForEach(tabs) { tab in
-                                    let isCurrent = (tab.id == activeTabId)
-                                    Group {
-                                        switch tab.session.protocolType {
-                                        case .ssh, .telnet, .serial, .ble, .local:
-                                            TerminalSplitView(
-                                                session: tab.session,
-                                                onDirectoryChanged: { newDir in
-                                                    updateTabDirectory(tabId: tab.id, directory: newDir)
-                                                },
-                                                onTerminalReady: { termView in
-                                                    self.terminalViews[tab.id] = termView
-                                                    if self.activeTabId == tab.id {
-                                                        focusTerminal(termView)
-                                                    }
-                                                },
-                                                onDiagnoseRequested: { contextSnippet in
-                                                    HapticFeedbackHelper.shared.performAlignment()
-                                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                                        showRightPanel = true
-                                                        activeRightTab = .ai
-                                                    }
-                                                    aiService.send(
-                                                        userText: "检测到终端产生报错，请针对以下报错信息进行快速根因分析，并给出修复命令：",
-                                                        terminalContext: contextSnippet
-                                                    )
-                                                }
-                                            )
-                                        case .vnc:
-                                            VNCView(session: tab.session)
-                                        case .sftp, .scp, .ftp:
-                                            FTPBrowserView(session: tab.session)
-                                        }
-                                    }
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .opacity(isCurrent ? 1 : 0)
-                                    .allowsHitTesting(isCurrent)
-                                    .zIndex(isCurrent ? 1 : 0)
-                                }
-                            }
-                        }
-                        
-                        // Floating Glass HUD Broadcast Center (macOS Dynamic Island Style)
-                        if isMultiExecEnabled {
-                            FloatingBroadcastHUDView(
-                                tabs: broadcastEligibleTabs,
-                                targetIds: $broadcastTargetTabIds,
-                                enableMirroring: $enableLiveKeyboardMirroring,
-                                commandText: $broadcastCommandText,
-                                feedbackText: broadcastFeedback,
-                                onExecute: { cmd in
-                                    executeBroadcast(command: cmd, autoExecute: true)
-                                },
-                                onInsert: { cmd in
-                                    executeBroadcast(command: cmd, autoExecute: false)
-                                },
-                                onSendCtrlC: {
-                                    sendBroadcastCtrlC()
-                                },
-                                onClearAll: {
-                                    executeBroadcast(command: "clear", autoExecute: true)
-                                },
-                                onClose: {
-                                    withAnimation(.spring()) {
-                                        isMultiExecEnabled = false
-                                    }
-                                }
-                            )
-                            .padding(.top, 10)
-                            .padding(.horizontal, 16)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // Main Terminal Canvas Area
+                    terminalCanvasView
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.secondary.opacity(0.15), lineWidth: 0.5)
+                )
+                .padding(.top, 4)
+                .padding(.horizontal, 6)
+                .padding(.bottom, 6)
                 
                 // Spotlight Quick Command Palette Overlay
                 if showQuickPalette {
@@ -231,34 +149,6 @@ public struct MainWorkspaceView: View {
                     )
                     .padding(.top, 50)
                     .transition(.scale(scale: 0.95).combined(with: .opacity))
-                }
-            }
-            .toolbarRole(.editor)
-            .toolbar {
-                ToolbarItemGroup(placement: .automatic) {
-                    // Multi-Exec Broadcast Toggle
-                    Button(action: {
-                        HapticFeedbackHelper.shared.performGeneric()
-                        withAnimation(.spring()) {
-                            isMultiExecEnabled.toggle()
-                        }
-                    }) {
-                        Label("同步广播", systemImage: isMultiExecEnabled ? "bolt.horizontal.fill" : "bolt.horizontal")
-                            .foregroundColor(isMultiExecEnabled ? .yellow : .primary)
-                    }
-                    .help("多终端同步输入广播模式 (⇧⌘B)")
-                    
-                    // Inspector Sidebar Toggle (Apple Standard)
-                    Button(action: {
-                        HapticFeedbackHelper.shared.performGeneric()
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showRightPanel.toggle()
-                        }
-                    }) {
-                        Label("辅助面板", systemImage: "sidebar.trailing")
-                            .foregroundColor(showRightPanel ? .accentColor : .primary)
-                    }
-                    .help("展开/收起右侧智能助手与命令库 (⌥⌘A)")
                 }
             }
             // Native macOS 14+ Inspector Integration
@@ -387,6 +277,14 @@ public struct MainWorkspaceView: View {
                         )
                     }
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.secondary.opacity(0.15), lineWidth: 0.5)
+                )
+                .padding(.top, 4)
+                .padding(.trailing, 6)
+                .padding(.bottom, 6)
                 .inspectorColumnWidth(min: 320, ideal: 380, max: 520)
             }
         }
@@ -436,7 +334,6 @@ public struct MainWorkspaceView: View {
             }
         }
         .onAppear {
-            setupKeyboardMonitor()
             setupMenuDispatcher()
         }
         .sheet(isPresented: $showSettingsSheet) {
@@ -449,6 +346,66 @@ public struct MainWorkspaceView: View {
             SessionEditSheet(sessionStore: sessionStore, editingItem: SessionItem(name: "新建分组", isGroup: true, iconName: "folder.fill"))
         }
         .environmentObject(sessionStore)
+    }
+    
+    @ViewBuilder
+    private var terminalCanvasView: some View {
+        ZStack {
+            if tabs.isEmpty {
+                EmptyStateView(
+                    onLaunchLocalTerminal: {
+                        launchLocalTerminal()
+                    },
+                    onNewSession: {
+                        showNewSessionSheet = true
+                    }
+                )
+            } else {
+                ForEach(tabs) { tab in
+                    let isCurrent = (tab.id == activeTabId)
+                    terminalTabContent(for: tab)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .opacity(isCurrent ? 1 : 0)
+                        .allowsHitTesting(isCurrent)
+                        .zIndex(isCurrent ? 1 : 0)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    @ViewBuilder
+    private func terminalTabContent(for tab: WorkspaceTab) -> some View {
+        switch tab.session.protocolType {
+        case .ssh, .telnet, .serial, .ble, .local:
+            TerminalSplitView(
+                session: tab.session,
+                onDirectoryChanged: { newDir in
+                    updateTabDirectory(tabId: tab.id, directory: newDir)
+                },
+                onTerminalReady: { termView in
+                    self.terminalViews[tab.id] = termView
+                    if self.activeTabId == tab.id {
+                        focusTerminal(termView)
+                    }
+                },
+                onDiagnoseRequested: { contextSnippet in
+                    HapticFeedbackHelper.shared.performAlignment()
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showRightPanel = true
+                        activeRightTab = .ai
+                    }
+                    aiService.send(
+                        userText: "检测到终端产生报错，请针对以下报错信息进行快速根因分析，并给出修复命令：",
+                        terminalContext: contextSnippet
+                    )
+                }
+            )
+        case .vnc:
+            VNCView(session: tab.session)
+        case .sftp, .scp, .ftp:
+            FTPBrowserView(session: tab.session)
+        }
     }
     
     private func setupMenuDispatcher() {
@@ -465,7 +422,6 @@ public struct MainWorkspaceView: View {
         dispatcher.onImport = { sessionStore.importFromFileWithOpenPanel() }
         dispatcher.onExport = { sessionStore.exportToFileWithSavePanel() }
         dispatcher.onClearTerminal = { executeCommandInActiveTerminal("clear") }
-        dispatcher.onToggleBroadcast = { withAnimation { isMultiExecEnabled.toggle() } }
         dispatcher.onToggleAI = {
             activeRightTab = .ai
             withAnimation { showRightPanel.toggle() }
@@ -604,19 +560,7 @@ public struct MainWorkspaceView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(cmd, forType: .string)
         
-        if isMultiExecEnabled {
-            for (tabId, term) in terminalViews {
-                term.sendCommand(command: cmd, autoExecute: true)
-                historyStore.record(sessionId: tabId, command: cmd)
-            }
-            auditStore.logExecution(
-                command: cmd,
-                riskLevel: "Multi-Exec Broadcast",
-                sessionName: "ALL_TERMINALS (\(terminalViews.count) nodes)",
-                targetHost: "BROADCAST"
-            )
-            HapticFeedbackHelper.shared.performAlignment()
-        } else if let term = activeTerminal {
+        if let term = activeTerminal {
             if let ownerTab = tabs.first(where: { terminalViews[$0.id] == term }), activeTabId != ownerTab.id {
                 switchToTab(ownerTab.id)
             }
@@ -648,11 +592,7 @@ public struct MainWorkspaceView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(cmd, forType: .string)
         
-        if isMultiExecEnabled {
-            for (_, term) in terminalViews {
-                term.sendCommand(command: cmd, autoExecute: false)
-            }
-        } else if let term = activeTerminal {
+        if let term = activeTerminal {
             if let ownerTab = tabs.first(where: { terminalViews[$0.id] == term }), activeTabId != ownerTab.id {
                 switchToTab(ownerTab.id)
             }
@@ -670,239 +610,7 @@ public struct MainWorkspaceView: View {
         HapticFeedbackHelper.shared.performGeneric()
     }
     
-    private func executeBroadcast(command: String, autoExecute: Bool) {
-        let clean = command.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clean.isEmpty else { return }
-        
-        var targetCount = 0
-        for (tabId, term) in terminalViews {
-            if broadcastTargetTabIds.isEmpty || broadcastTargetTabIds.contains(tabId) {
-                term.sendCommand(command: clean, autoExecute: autoExecute)
-                if autoExecute {
-                    historyStore.record(sessionId: tabId, command: clean)
-                }
-                targetCount += 1
-            }
-        }
-        
-        if autoExecute {
-            auditStore.logExecution(
-                command: clean,
-                riskLevel: "Multi-Exec Broadcast",
-                sessionName: "BROADCAST (\(targetCount) nodes)",
-                targetHost: "CLUSTER_BROADCAST"
-            )
-            broadcastCommandText = ""
-        }
-        
-        HapticFeedbackHelper.shared.performAlignment()
-        
-        withAnimation {
-            broadcastFeedback = "⚡ 已向 \(targetCount) 个终端节点广播指令"
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            withAnimation {
-                self.broadcastFeedback = nil
-            }
-        }
-    }
-    
-    private func sendBroadcastCtrlC() {
-        let ctrlCData = Data([0x03])
-        var count = 0
-        for (tabId, term) in terminalViews {
-            if broadcastTargetTabIds.isEmpty || broadcastTargetTabIds.contains(tabId) {
-                term.sendBroadcastData(ctrlCData)
-                count += 1
-            }
-        }
-        HapticFeedbackHelper.shared.performLevelChange()
-        withAnimation {
-            broadcastFeedback = "⚡ 已向 \(count) 个终端发送 Ctrl+C 中断信号"
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            withAnimation {
-                self.broadcastFeedback = nil
-            }
-        }
-    }
-    
-    private func setupKeyboardMonitor() {
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard self.isMultiExecEnabled, self.enableLiveKeyboardMirroring else { return event }
-            
-            if let window = NSApp.keyWindow, let firstResponder = window.firstResponder as? NSView {
-                let isTerminalFocus = firstResponder is CustomTerminalView || String(describing: type(of: firstResponder)).contains("Terminal")
-                if isTerminalFocus, let chars = event.characters, !chars.isEmpty {
-                    for (tabId, term) in self.terminalViews where tabId != self.activeTabId {
-                        if self.broadcastTargetTabIds.isEmpty || self.broadcastTargetTabIds.contains(tabId) {
-                            term.sendBroadcastCharacters(chars)
-                        }
-                    }
-                }
-            }
-            return event
-        }
-    }
-}
 
-// MARK: - Floating Glass HUD Broadcast Center (macOS Style)
-struct FloatingBroadcastHUDView: View {
-    let tabs: [WorkspaceTab]
-    @Binding var targetIds: Set<UUID>
-    @Binding var enableMirroring: Bool
-    @Binding var commandText: String
-    let feedbackText: String?
-    
-    let onExecute: (String) -> Void
-    let onInsert: (String) -> Void
-    let onSendCtrlC: () -> Void
-    let onClearAll: () -> Void
-    let onClose: () -> Void
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Header & Target Selection Bar
-            HStack(spacing: 8) {
-                Label("同步广播中心", systemImage: "bolt.horizontal.fill")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.yellow)
-                
-                Text("目标会话:")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(tabs) { tab in
-                            let isSelected = targetIds.isEmpty || targetIds.contains(tab.id)
-                            Button(action: {
-                                if targetIds.isEmpty {
-                                    var all = Set(tabs.map { $0.id })
-                                    all.remove(tab.id)
-                                    targetIds = all
-                                } else if targetIds.contains(tab.id) {
-                                    targetIds.remove(tab.id)
-                                } else {
-                                    targetIds.insert(tab.id)
-                                }
-                            }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(isSelected ? .green : .secondary)
-                                    Text(tab.title)
-                                        .font(.system(size: 11, weight: isSelected ? .medium : .regular))
-                                }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(isSelected ? Color.yellow.opacity(0.2) : Color.secondary.opacity(0.12))
-                                .cornerRadius(6)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-                
-                Spacer()
-                
-                Toggle("实时键盘镜像", isOn: $enableMirroring)
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11))
-                    .help("开启后，任意终端击键将实时镜像给所有勾选终端")
-                
-                Button(action: onClose) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("关闭广播模式")
-            }
-            
-            // Broadcast Command Input Box
-            HStack(spacing: 8) {
-                HStack {
-                    Image(systemName: "terminal")
-                        .font(.system(size: 11))
-                        .foregroundColor(.yellow)
-                    
-                    TextField("输入命令按回车，将同时在以上已勾选的会话中并发执行...", text: $commandText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 12, design: .monospaced))
-                        .onSubmit {
-                            onExecute(commandText)
-                        }
-                    
-                    if !commandText.isEmpty {
-                        Button(action: { commandText = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(Color(NSColor.textBackgroundColor).opacity(0.8))
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.yellow.opacity(0.6), lineWidth: 1.5)
-                )
-                
-                Button(action: { onExecute(commandText) }) {
-                    Label("广播执行 (Enter)", systemImage: "paperplane.fill")
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.yellow)
-                .foregroundColor(.black)
-                .controlSize(.regular)
-                .disabled(commandText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                
-                if let feedback = feedbackText {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                            .font(.system(size: 11))
-                        Text(feedback)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.green)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.green.opacity(0.15))
-                    .cornerRadius(6)
-                    .transition(.opacity)
-                }
-                
-                Button(action: { onInsert(commandText) }) {
-                    Text("填入")
-                        .font(.system(size: 11))
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
-                .disabled(commandText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                
-                Menu {
-                    Button("广播发送 Ctrl+C 中断", action: onSendCtrlC)
-                    Button("广播执行 clear 清屏", action: onClearAll)
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .menuStyle(.borderlessButton)
-                .frame(width: 24)
-            }
-        }
-        .padding(12)
-        .background(.ultraThinMaterial)
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.yellow.opacity(0.35), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 6)
-    }
 }
 
 // MARK: - Materialized Native TabBar View with Drag & Drop
@@ -913,6 +621,8 @@ struct TabBarView: View {
     let onCloseTab: (WorkspaceTab) -> Void
     let onNewTab: () -> Void
     let onOpenPalette: () -> Void
+    @Binding var showRightPanel: Bool
+    let onToggleRightPanel: () -> Void
     
     @ObservedObject private var themeStore = ThemeStore.shared
     @State private var hoveredTabId: UUID?
@@ -983,6 +693,19 @@ struct TabBarView: View {
             }
             
             Spacer()
+            
+            // Inspector Toggle Button (Apple Standard)
+            Button(action: onToggleRightPanel) {
+                Image(systemName: "sidebar.trailing")
+                    .font(.system(size: 12))
+                    .foregroundColor(showRightPanel ? .accentColor : .secondary)
+                    .frame(width: 26, height: 26)
+                    .background(Color.secondary.opacity(showRightPanel ? 0.12 : 0.06))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .buttonStyle(.plain)
+            .help("展开/收起右侧辅助面板 (⌥⌘A)")
+            .padding(.trailing, 8)
         }
         .background(.ultraThinMaterial)
     }
@@ -1102,7 +825,6 @@ final class MenuEventDispatcher {
     var onImport: (() -> Void)?
     var onExport: (() -> Void)?
     var onClearTerminal: (() -> Void)?
-    var onToggleBroadcast: (() -> Void)?
     var onToggleAI: (() -> Void)?
     var onToggleSnippets: (() -> Void)?
     var onNextTab: (() -> Void)?
@@ -1123,7 +845,6 @@ final class MenuEventDispatcher {
         nc.addObserver(forName: .AIConsoleImportConfig, object: nil, queue: .main) { [weak self] _ in self?.onImport?() }
         nc.addObserver(forName: .AIConsoleExportConfig, object: nil, queue: .main) { [weak self] _ in self?.onExport?() }
         nc.addObserver(forName: .AIConsoleClearTerminal, object: nil, queue: .main) { [weak self] _ in self?.onClearTerminal?() }
-        nc.addObserver(forName: .AIConsoleToggleBroadcast, object: nil, queue: .main) { [weak self] _ in self?.onToggleBroadcast?() }
         nc.addObserver(forName: .AIConsoleToggleAIPanel, object: nil, queue: .main) { [weak self] _ in self?.onToggleAI?() }
         nc.addObserver(forName: .AIConsoleToggleSnippetsPanel, object: nil, queue: .main) { [weak self] _ in self?.onToggleSnippets?() }
         nc.addObserver(forName: .AIConsoleNextTab, object: nil, queue: .main) { [weak self] _ in self?.onNextTab?() }

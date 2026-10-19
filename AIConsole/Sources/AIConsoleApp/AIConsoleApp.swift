@@ -87,12 +87,6 @@ struct AIConsoleApp: App {
             // View & Layout Menu
             CommandGroup(after: .toolbar) {
                 Divider()
-                Button("开启 / 关闭多终端同步广播") {
-                    NotificationCenter.default.post(name: .AIConsoleToggleBroadcast, object: nil)
-                }
-                .keyboardShortcut("b", modifiers: [.shift, .command])
-                
-                Divider()
                 
                 Button("展开 / 收起智能助手") {
                     NotificationCenter.default.post(name: .AIConsoleToggleAIPanel, object: nil)
@@ -228,7 +222,6 @@ extension Notification.Name {
     static let AIConsoleImportConfig = Notification.Name("AIConsoleImportConfig")
     static let AIConsoleExportConfig = Notification.Name("AIConsoleExportConfig")
     static let AIConsoleClearTerminal = Notification.Name("AIConsoleClearTerminal")
-    static let AIConsoleToggleBroadcast = Notification.Name("AIConsoleToggleBroadcast")
     static let AIConsoleToggleAIPanel = Notification.Name("AIConsoleToggleAIPanel")
     static let AIConsoleToggleSnippetsPanel = Notification.Name("AIConsoleToggleSnippetsPanel")
     static let AIConsoleNextTab = Notification.Name("AIConsoleNextTab")
