@@ -140,12 +140,17 @@ public final class CustomTerminalView: LocalProcessTerminalView {
             sessionHistoryRing.append(rawText)
         }
         
-        // 1. Realtime Crash-Proof Session Recording Streamed to Disk
-        if isRecording, let handle = recordingFileHandle, let data = rawText.data(using: .utf8) {
-            _ = try? handle.seekToEnd()
-            try? handle.write(contentsOf: data)
-            try? handle.synchronize()
-            recordedTranscript.append(rawText)
+        // 1. Realtime Crash-Proof Session Recording Streamed to Disk (Clean Human-Readable Text)
+        if isRecording, let handle = recordingFileHandle {
+            let cleaned = TerminalTextSanitizer.clean(rawText)
+            if !cleaned.isEmpty {
+                if let data = cleaned.data(using: .utf8) {
+                    _ = try? handle.seekToEnd()
+                    try? handle.write(contentsOf: data)
+                    try? handle.synchronize()
+                }
+                recordedTranscript.append(cleaned)
+            }
         }
         
         // 2. Realtime AI Error & Anomaly Detection
@@ -499,6 +504,7 @@ public final class CustomTerminalView: LocalProcessTerminalView {
                     handle.synchronizeFile()
                 }
                 
+                self.recordedTranscript.removeAll()
                 self.recordingFileHandle = handle
                 self.recordingFileURL = url
                 self.isRecording = true
@@ -589,12 +595,7 @@ public final class CustomTerminalView: LocalProcessTerminalView {
         // 1. Primary: Extract from full multi-page stream history
         if !sessionHistoryRing.isEmpty {
             let combined = sessionHistoryRing.joined()
-            // Clean ANSI escape sequences
-            let cleanText = combined.replacingOccurrences(
-                of: "\\x1b\\[[0-9;]*[a-zA-Z]",
-                with: "",
-                options: .regularExpression
-            )
+            let cleanText = TerminalTextSanitizer.clean(combined)
             let lines = cleanText.components(separatedBy: .newlines)
                 .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             
@@ -640,12 +641,6 @@ public final class CustomTerminalView: LocalProcessTerminalView {
         var toSend = command
         if autoExecute && !toSend.hasSuffix("\n") {
             toSend += "\n"
-        }
-        
-        if isRecording {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm:ss"
-            recordedTranscript.append("[\(formatter.string(from: Date())) INPUT] > \(command)\(autoExecute ? "\n" : "")")
         }
         
         if let data = toSend.data(using: .utf8) {

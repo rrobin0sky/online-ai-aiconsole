@@ -258,13 +258,14 @@ public struct SessionRecordingView: View {
     private func startRecording() {
         guard let term = activeTerminalGetter() else { return }
         let sessionName = currentSession?.name ?? "Terminal"
+        self.recordedText = ""
         term.startRecording(sessionName: sessionName) { started, url in
             DispatchQueue.main.async {
                 self.isRecording = started
                 self.recordingFileURL = url
                 if started {
                     self.recordingStartTime = Date()
-                    self.recordedText = term.recordedTranscript.joined()
+                    self.recordedText = ""
                 }
             }
         }
