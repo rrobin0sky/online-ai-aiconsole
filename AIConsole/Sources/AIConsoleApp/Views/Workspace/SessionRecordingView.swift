@@ -192,7 +192,7 @@ public struct SessionRecordingView: View {
                 }
             }
             .padding(10)
-            .background(Color(NSColor.windowBackgroundColor))
+            .background(.ultraThinMaterial)
             
             Divider()
             
@@ -242,32 +242,69 @@ public struct SessionRecordingView: View {
             
             Divider()
             
-            // Bottom Info Bar
-            HStack {
-                if let st = currentState {
-                    Text("\(st.lineCount) 行 • \(st.byteCount) 字节")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                } else {
-                    Text("0 行 • 0 字节")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+            // Bottom Pro Utility Bar
+            HStack(spacing: 8) {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(isCurrentlyRecording ? Color.red : Color.secondary.opacity(0.35))
+                        .frame(width: 5, height: 5)
+                    
+                    if let st = currentState {
+                        Text("\(st.lineCount) 行 • \(ByteCountFormatter.string(fromByteCount: Int64(st.byteCount), countStyle: .file))")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("0 行 • 0 B")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
                 Spacer()
                 
-                Toggle("毫秒时间戳", isOn: $recordingManager.includeTimestamps)
-                    .font(.caption2)
-                    .toggleStyle(.checkbox)
-                    .help("在每行日志开头注入 [yyyy-MM-dd HH:mm:ss.SSS] 精准时间戳")
+                // Micro capsule toggle: Timestamps
+                Button(action: {
+                    HapticFeedbackHelper.shared.performGeneric()
+                    recordingManager.includeTimestamps.toggle()
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 9))
+                        Text("毫秒时间戳")
+                            .font(.system(size: 10, weight: recordingManager.includeTimestamps ? .semibold : .regular))
+                    }
+                    .foregroundColor(recordingManager.includeTimestamps ? .accentColor : .secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(recordingManager.includeTimestamps ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.06))
+                    .cornerRadius(4)
+                }
+                .buttonStyle(.plain)
+                .help("在每行日志开头注入 [yyyy-MM-dd HH:mm:ss.SSS] 精准毫秒时间戳")
                 
-                Toggle("自动滚底", isOn: $autoScrollToBottom)
-                    .font(.caption2)
-                    .toggleStyle(.checkbox)
+                // Micro capsule toggle: Auto-scroll
+                Button(action: {
+                    HapticFeedbackHelper.shared.performGeneric()
+                    autoScrollToBottom.toggle()
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "arrow.down.to.line")
+                            .font(.system(size: 9))
+                        Text("自动滚底")
+                            .font(.system(size: 10, weight: autoScrollToBottom ? .semibold : .regular))
+                    }
+                    .foregroundColor(autoScrollToBottom ? .accentColor : .secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(autoScrollToBottom ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.06))
+                    .cornerRadius(4)
+                }
+                .buttonStyle(.plain)
+                .help("当产生新输出时自动滚动到底部")
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color(NSColor.windowBackgroundColor))
+            .padding(.vertical, 5)
+            .background(.ultraThinMaterial)
         }
         .onReceive(timer) { _ in
             // Trigger UI refresh for elapsed time
@@ -279,6 +316,7 @@ public struct SessionRecordingView: View {
     }
     
     private func startCurrentRecording() {
+        HapticFeedbackHelper.shared.performGeneric()
         guard let tid = effectiveTabId else { return }
         let sessionName = currentSession?.name ?? "Terminal"
         let term = activeTerminalGetter()
@@ -303,11 +341,13 @@ public struct SessionRecordingView: View {
     }
     
     private func stopCurrentRecording() {
+        HapticFeedbackHelper.shared.performAlignment()
         guard let tid = effectiveTabId else { return }
         _ = recordingManager.stopRecording(tabId: tid)
     }
     
     private func copyRecordedContent() {
+        HapticFeedbackHelper.shared.performGeneric()
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(recordedText, forType: .string)
         withAnimation { copiedToast = true }

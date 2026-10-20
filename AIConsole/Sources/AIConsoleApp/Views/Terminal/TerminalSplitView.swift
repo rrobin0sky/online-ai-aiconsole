@@ -498,18 +498,23 @@ public struct TerminalSplitView: View {
                     }
                 }
             )
-            .padding(.leading, 12)
-            .padding(.trailing, 8)
-            .padding(.vertical, 8)
+            .padding(.leading, 8)
+            .padding(.trailing, 4)
+            .padding(.top, 6)
+            .padding(.bottom, 4)
             .background(Color(themeStore.currentTheme.backgroundColor))
             .opacity(isSplit && !isFocused ? 0.88 : 1.0)
         }
-        .clipShape(RoundedRectangle(cornerRadius: isSplit ? 6 : 8))
+        .clipShape(RoundedRectangle(cornerRadius: isSplit ? 6 : 0))
         .overlay(
-            RoundedRectangle(cornerRadius: isSplit ? 6 : 8)
-                .stroke(isSplit && isFocused ? Color.accentColor : Color.white.opacity(0.06), lineWidth: isSplit && isFocused ? 1.5 : 0.5)
+            Group {
+                if isSplit {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isFocused ? Color.accentColor : Color.white.opacity(0.1), lineWidth: isFocused ? 1.5 : 0.5)
+                }
+            }
         )
-        .padding(isSplit ? 4 : 6)
+        .padding(isSplit ? 3 : 0)
         .onTapGesture {
             focusPane(paneIndex)
         }

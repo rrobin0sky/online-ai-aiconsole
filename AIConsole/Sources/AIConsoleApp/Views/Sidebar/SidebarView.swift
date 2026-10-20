@@ -141,7 +141,7 @@ public struct SidebarView: View {
             
             Divider()
             
-            // Bottom Status Bar
+            // Bottom Status Bar (Apple Pro Navigator Footer)
             HStack(spacing: 6) {
                 Image(systemName: "circle.grid.2x2")
                     .font(.system(size: 10))
@@ -152,9 +152,40 @@ public struct SidebarView: View {
                     .foregroundColor(.secondary)
                 
                 Spacer()
+                
+                Button(action: {
+                    HapticFeedbackHelper.shared.performGeneric()
+                    parentGroupForNew = nil
+                    editingTarget = nil
+                    showingEditSheet = true
+                }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 20, height: 20)
+                        .background(Color.secondary.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .help("新增远程连接 (⌘N)")
+                
+                Button(action: {
+                    HapticFeedbackHelper.shared.performGeneric()
+                    newGroupName = "新建分组"
+                    showingNewGroupDialog = true
+                }) {
+                    Image(systemName: "folder.badge.plus")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .frame(width: 20, height: 20)
+                        .background(Color.secondary.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .help("新建目录分组 (⇧⌘N)")
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
             .background(.ultraThinMaterial)
         }
         .sheet(isPresented: $showingEditSheet) {
@@ -358,10 +389,12 @@ struct SessionTreeNodeView: View {
             .onHover { isHovered = $0 }
             .onTapGesture(count: 2) {
                 // Double-click to instantly open tab & connect
+                HapticFeedbackHelper.shared.performGeneric()
                 selectedSessionId = item.id
                 onOpen(item)
             }
             .onTapGesture(count: 1) {
+                HapticFeedbackHelper.shared.performGeneric()
                 selectedSessionId = item.id
             }
             .contextMenu {

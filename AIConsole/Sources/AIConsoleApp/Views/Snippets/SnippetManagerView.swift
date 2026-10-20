@@ -17,53 +17,73 @@ public struct SnippetManagerView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Search, Action & Category Segment
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    HStack {
+            // Search, Action & Category Segment (Standard 32pt/Pro Header)
+            VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    HStack(spacing: 4) {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.secondary)
-                            .font(.system(size: 11))
-                        TextField("搜索命令或标题...", text: $searchQuery)
+                            .font(.system(size: 10))
+                        TextField("搜索常用运维命令或别名...", text: $searchQuery)
                             .textFieldStyle(.plain)
-                            .font(.system(size: 12))
+                            .font(.system(size: 11))
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(Color(NSColor.textBackgroundColor))
-                    .cornerRadius(6)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(Color.secondary.opacity(0.08))
+                    .cornerRadius(5)
                     
                     Button(action: {
+                        HapticFeedbackHelper.shared.performGeneric()
                         editingSnippet = nil
                         showingAddSheet = true
                     }) {
-                        Label("新建", systemImage: "plus")
-                            .font(.caption)
+                        HStack(spacing: 3) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("新建")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(Color.secondary.opacity(0.08))
+                        .cornerRadius(5)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                    .buttonStyle(.plain)
+                    .help("新建常用命令模板 (⌘N)")
                 }
                 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 4) {
                         ForEach(snippetStore.allCategories, id: \.self) { cat in
-                            Button(action: { selectedCategory = cat }) {
+                            let isSelected = (selectedCategory == cat)
+                            Button(action: {
+                                HapticFeedbackHelper.shared.performGeneric()
+                                selectedCategory = cat
+                            }) {
                                 Text(cat)
-                                    .font(.caption)
-                                    .fontWeight(selectedCategory == cat ? .semibold : .regular)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(selectedCategory == cat ? Color.accentColor : Color(NSColor.controlBackgroundColor))
-                                    .foregroundColor(selectedCategory == cat ? .white : .primary)
-                                    .cornerRadius(12)
+                                    .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2.5)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(isSelected ? Color(NSColor.controlBackgroundColor) : Color.clear)
+                                            .shadow(color: isSelected ? Color.black.opacity(0.06) : Color.clear, radius: 1, y: 1)
+                                    )
+                                    .foregroundColor(isSelected ? .primary : .secondary)
                             }
                             .buttonStyle(.plain)
                         }
                     }
+                    .padding(2)
+                    .background(Color.secondary.opacity(0.06))
+                    .cornerRadius(5)
                 }
             }
-            .padding(8)
-            .background(Color(NSColor.windowBackgroundColor))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial)
             
             Divider()
             
@@ -116,84 +136,122 @@ struct SnippetCardRow: View {
     
     @State private var isInserted: Bool = false
     @State private var isExecuted: Bool = false
+    @State private var isHovered: Bool = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
                 Text(snippet.title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
                 
                 Spacer()
                 
                 Text(snippet.category)
-                    .font(.system(size: 10))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.accentColor.opacity(0.15))
+                    .font(.system(size: 9, weight: .medium))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1.5)
+                    .background(Color.accentColor.opacity(0.12))
                     .foregroundColor(.accentColor)
-                    .cornerRadius(4)
+                    .cornerRadius(3)
             }
             
             Text(snippet.command)
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 10, design: .monospaced))
                 .foregroundColor(.secondary)
                 .lineLimit(2)
-                .padding(6)
+                .padding(5)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.black.opacity(0.3))
+                .background(Color.black.opacity(0.25))
                 .cornerRadius(4)
             
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 Button(action: {
+                    HapticFeedbackHelper.shared.performGeneric()
                     onInsert()
                     withAnimation { isInserted = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                         withAnimation { isInserted = false }
                     }
                 }) {
-                    Label(isInserted ? "已填入" : "填入", systemImage: isInserted ? "checkmark" : "arrow.right.doc.on.clipboard")
-                        .font(.caption2)
-                        .foregroundColor(isInserted ? .green : .primary)
+                    HStack(spacing: 3) {
+                        Image(systemName: isInserted ? "checkmark" : "arrow.right.doc.on.clipboard")
+                            .font(.system(size: 8))
+                        Text(isInserted ? "已填入" : "填入")
+                            .font(.system(size: 10))
+                    }
+                    .foregroundColor(isInserted ? .green : .secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2.5)
+                    .background(Color.secondary.opacity(0.08))
+                    .cornerRadius(4)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.mini)
+                .buttonStyle(.plain)
+                .help("将命令文本填入当前活动终端")
                 
                 Button(action: {
+                    HapticFeedbackHelper.shared.performGeneric()
                     onExecute()
                     withAnimation { isExecuted = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                         withAnimation { isExecuted = false }
                     }
                 }) {
-                    Label(isExecuted ? "已执行" : "一键执行", systemImage: isExecuted ? "checkmark" : "play.fill")
-                        .font(.caption2)
-                        .fontWeight(.medium)
+                    HStack(spacing: 3) {
+                        Image(systemName: isExecuted ? "checkmark" : "play.fill")
+                            .font(.system(size: 8))
+                        Text(isExecuted ? "已执行" : "执行")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2.5)
+                    .background(isExecuted ? Color.green : Color.accentColor)
+                    .cornerRadius(4)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(isExecuted ? .green : .accentColor)
-                .controlSize(.mini)
+                .buttonStyle(.plain)
+                .help("立即发送并在终端执行此命令 (Return)")
                 
                 Spacer()
                 
-                Button(action: onEdit) {
-                    Image(systemName: "pencil")
-                        .font(.caption2)
+                if isHovered {
+                    Button(action: {
+                        HapticFeedbackHelper.shared.performGeneric()
+                        onEdit()
+                    }) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                            .frame(width: 18, height: 18)
+                            .background(Color.secondary.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                    }
+                    .buttonStyle(.plain)
+                    .help("编辑命令片段")
+                    
+                    Button(action: {
+                        HapticFeedbackHelper.shared.performAlignment()
+                        onDelete()
+                    }) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 9))
+                            .foregroundColor(.red.opacity(0.8))
+                            .frame(width: 18, height: 18)
+                            .background(Color.red.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                    }
+                    .buttonStyle(.plain)
+                    .help("删除命令片段")
                 }
-                .buttonStyle(.plain)
-                .help("编辑片段")
-                
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .font(.caption2)
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(.plain)
-                .help("删除片段")
             }
         }
-        .padding(8)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(6)
+        .padding(7)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(isHovered ? Color.secondary.opacity(0.08) : Color.secondary.opacity(0.04))
+        )
+        .onHover { isHovered = $0 }
     }
 }
 

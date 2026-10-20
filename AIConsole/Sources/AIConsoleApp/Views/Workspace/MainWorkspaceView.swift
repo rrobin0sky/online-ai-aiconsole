@@ -708,7 +708,10 @@ struct TabItemView: View {
             }
             
             if canClose {
-                Button(action: onClose) {
+                Button(action: {
+                    HapticFeedbackHelper.shared.performGeneric()
+                    onClose()
+                }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 8, weight: .bold))
                         .foregroundColor(.secondary)
@@ -717,6 +720,7 @@ struct TabItemView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .help("关闭当前标签 (⌘W)")
             }
         }
         .padding(.horizontal, 8)
@@ -728,7 +732,10 @@ struct TabItemView: View {
         )
         .contentShape(Rectangle())
         .onHover(perform: onHover)
-        .onTapGesture(perform: onSelect)
+        .onTapGesture {
+            HapticFeedbackHelper.shared.performGeneric()
+            onSelect()
+        }
     }
     
     private func protocolColor(_ proto: SessionProtocol) -> Color {
@@ -763,7 +770,7 @@ struct TabBarView: View {
         HStack(spacing: 6) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 3) {
-                    ForEach(tabs) { tab in
+                    ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
                         TabItemView(
                             tab: tab,
                             isActive: tab.id == activeTabId,
@@ -774,10 +781,14 @@ struct TabBarView: View {
                             onClose: { onCloseTab(tab) },
                             onHover: { h in hoveredTabId = h ? tab.id : nil }
                         )
+                        .help(index < 9 ? "\(tab.title) (⌘\(index + 1))" : tab.title)
                     }
                     
                     // New Tab Button
-                    Button(action: onNewTab) {
+                    Button(action: {
+                        HapticFeedbackHelper.shared.performGeneric()
+                        onNewTab()
+                    }) {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
@@ -788,6 +799,38 @@ struct TabBarView: View {
                     .buttonStyle(.plain)
                     .help("新建终端标签 (⌘T)")
                     .padding(.leading, 2)
+                    
+                    // Tab Overflow & Quick Jump Menu (shown when multiple tabs exist)
+                    if tabs.count > 1 {
+                        Menu {
+                            ForEach(Array(tabs.enumerated()), id: \.element.id) { idx, t in
+                                Button(action: {
+                                    HapticFeedbackHelper.shared.performGeneric()
+                                    onSelectTab(t)
+                                }) {
+                                    HStack {
+                                        Label(t.title, systemImage: t.session.iconName)
+                                        if t.id == activeTabId {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        if idx < 9 {
+                                            Text("⌘\(idx + 1)")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(.secondary)
+                                .frame(width: 18, height: 18)
+                                .background(Color.secondary.opacity(0.06))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                        }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                        .help("快速切换标签列表 (⌘1~9)")
+                    }
                 }
                 .padding(.horizontal, 6)
             }
@@ -823,6 +866,25 @@ struct TabBarView: View {
     }
 }
 
+// MARK: - Keycap Badge Helper for Cheatsheet
+private struct KeycapBadge: View {
+    let key: String
+    
+    var body: some View {
+        Text(key)
+            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(Color.white.opacity(0.08))
+            .cornerRadius(4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+            )
+    }
+}
+
 // MARK: - Empty State View
 struct EmptyStateView: View {
     let onLaunchLocalTerminal: () -> Void
@@ -832,7 +894,7 @@ struct EmptyStateView: View {
     @State private var isHoverNew: Bool = false
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             ZStack {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(Color.white.opacity(0.06))
@@ -846,9 +908,9 @@ struct EmptyStateView: View {
                     .font(.system(size: 26, weight: .heavy, design: .monospaced))
                     .foregroundColor(.accentColor)
             }
-            .padding(.bottom, 4)
+            .padding(.bottom, 2)
             
-            VStack(spacing: 6) {
+            VStack(spacing: 5) {
                 Text("智能运维终端就绪")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.primary)
@@ -859,12 +921,16 @@ struct EmptyStateView: View {
             }
             
             HStack(spacing: 12) {
-                Button(action: onLaunchLocalTerminal) {
+                Button(action: {
+                    HapticFeedbackHelper.shared.performGeneric()
+                    onLaunchLocalTerminal()
+                }) {
                     HStack(spacing: 6) {
                         Image(systemName: "apple.terminal.fill")
                             .font(.system(size: 13))
-                        Text("启动本地终端 (⇧⌘T)")
+                        Text("启动本地终端")
                             .font(.system(size: 12, weight: .medium))
+                        KeycapBadge(key: "⇧⌘T")
                     }
                     .foregroundColor(.primary)
                     .padding(.horizontal, 14)
@@ -881,12 +947,16 @@ struct EmptyStateView: View {
                 .buttonStyle(.plain)
                 .onHover { isHoverLocal = $0 }
                 
-                Button(action: onNewSession) {
+                Button(action: {
+                    HapticFeedbackHelper.shared.performGeneric()
+                    onNewSession()
+                }) {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
                             .font(.system(size: 12, weight: .medium))
-                        Text("新增会话 (⌘N)")
+                        Text("新增会话")
                             .font(.system(size: 12, weight: .medium))
+                        KeycapBadge(key: "⌘N")
                     }
                     .foregroundColor(.primary)
                     .padding(.horizontal, 16)
@@ -903,7 +973,30 @@ struct EmptyStateView: View {
                 .buttonStyle(.plain)
                 .onHover { isHoverNew = $0 }
             }
-            .padding(.top, 4)
+            .padding(.top, 2)
+            
+            // Pro Cheatsheet: Essential Keyboard Shortcuts
+            VStack(spacing: 8) {
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        KeycapBadge(key: "⌘T")
+                        Text("新建终端").font(.system(size: 11)).foregroundColor(.secondary)
+                    }
+                    HStack(spacing: 4) {
+                        KeycapBadge(key: "⌘K")
+                        Text("命令调色板").font(.system(size: 11)).foregroundColor(.secondary)
+                    }
+                    HStack(spacing: 4) {
+                        KeycapBadge(key: "⌥⌘A")
+                        Text("侧边检查器").font(.system(size: 11)).foregroundColor(.secondary)
+                    }
+                    HStack(spacing: 4) {
+                        KeycapBadge(key: "⌘1~9")
+                        Text("切标签页").font(.system(size: 11)).foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(.top, 12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(red: 0.08, green: 0.08, blue: 0.09))

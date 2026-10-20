@@ -26,9 +26,9 @@ public struct AIAssistantView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Unified Diagnostic & Mode Bar
-            VStack(spacing: 8) {
-                // Session Scope Indicator & Selector
+            // Unified Diagnostic & Mode Bar (Compact Pro Style)
+            VStack(spacing: 6) {
+                // Row 1: Session Selector & One-Click Diagnosis Action
                 HStack(spacing: 6) {
                     Menu {
                         Button(action: {
@@ -73,61 +73,16 @@ public struct AIAssistantView: View {
                     .menuStyle(.borderlessButton)
                     .fixedSize()
                     
-                    Spacer()
-                    
-                    // Provider badge
                     Text(aiService.config.provider.rawValue)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 9, design: .monospaced))
                         .foregroundColor(.secondary)
-                        .padding(.horizontal, 6)
+                        .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(Color.secondary.opacity(0.08))
-                        .cornerRadius(4)
-                }
-                
-                HStack(spacing: 6) {
-                    // Mode selector segmented buttons
-                    HStack(spacing: 2) {
-                        ForEach(AIDiagnoseMode.allCases) { mode in
-                            let isSelected = (aiService.diagnoseMode == mode)
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.15)) {
-                                    aiService.diagnoseMode = mode
-                                }
-                                HapticFeedbackHelper.shared.performGeneric()
-                            }) {
-                                Text(mode.rawValue)
-                                    .font(.system(size: 11, weight: isSelected ? .medium : .regular))
-                                    .foregroundColor(isSelected ? .primary : .secondary)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 3)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 5)
-                                            .fill(isSelected ? Color(NSColor.controlBackgroundColor) : Color.clear)
-                                            .shadow(color: isSelected ? .black.opacity(0.08) : .clear, radius: 1, y: 1)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(2)
-                    .background(Color.secondary.opacity(0.08))
-                    .cornerRadius(6)
+                        .cornerRadius(3)
                     
                     Spacer()
                     
-                    if aiService.isGenerating {
-                        HStack(spacing: 4) {
-                            ProgressView().scaleEffect(0.5)
-                            Text("分析中...")
-                                .font(.system(size: 10))
-                                .foregroundColor(.purple)
-                        }
-                    }
-                }
-                
-                // One-click diagnosis button
-                HStack(spacing: 8) {
                     let allNodes = allTerminalsGetter()
                     if allNodes.count > 1 {
                         Menu {
@@ -138,56 +93,104 @@ public struct AIAssistantView: View {
                                 Label("仅诊断当前单台节点", systemImage: "display")
                             }
                         } label: {
-                            HStack(spacing: 5) {
+                            HStack(spacing: 4) {
                                 Image(systemName: "sparkles")
-                                Text("联合诊断集群 (\(allNodes.count)台)")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.system(size: 10))
+                                Text("诊断集群 (\(allNodes.count))")
+                                    .font(.system(size: 10, weight: .semibold))
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 4)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.accentColor)
+                            .cornerRadius(5)
                         }
-                        .menuStyle(.borderedButton)
-                        .controlSize(.small)
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
                         .disabled(aiService.isGenerating)
                     } else {
-                        Button(action: diagnoseActiveTerminal) {
-                            HStack(spacing: 5) {
+                        Button(action: {
+                            HapticFeedbackHelper.shared.performGeneric()
+                            diagnoseActiveTerminal()
+                        }) {
+                            HStack(spacing: 4) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 11))
-                                Text("提取终端上下文一键诊断")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.system(size: 10))
+                                Text("一键诊断")
+                                    .font(.system(size: 10, weight: .semibold))
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 5)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.accentColor)
+                            .cornerRadius(5)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                        .tint(Color.accentColor)
+                        .buttonStyle(.plain)
                         .disabled(aiService.isGenerating)
                     }
                     
                     if aiService.isGenerating {
                         Button(action: {
+                            HapticFeedbackHelper.shared.performAlignment()
                             aiService.cancelCurrentGeneration()
                         }) {
                             HStack(spacing: 3) {
                                 Image(systemName: "stop.fill")
-                                    .font(.system(size: 9))
+                                    .font(.system(size: 8))
                                 Text("停止")
-                                    .font(.system(size: 11))
+                                    .font(.system(size: 10, weight: .medium))
                             }
                             .foregroundColor(.red)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
                             .background(Color.red.opacity(0.12))
-                            .cornerRadius(6)
+                            .cornerRadius(4)
                         }
                         .buttonStyle(.plain)
                     }
                 }
+                
+                // Row 2: Mode Selector Segmented Pills
+                HStack(spacing: 2) {
+                    ForEach(AIDiagnoseMode.allCases) { mode in
+                        let isSelected = (aiService.diagnoseMode == mode)
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                aiService.diagnoseMode = mode
+                            }
+                            HapticFeedbackHelper.shared.performGeneric()
+                        }) {
+                            Text(mode.rawValue)
+                                .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                                .foregroundColor(isSelected ? .primary : .secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2.5)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(isSelected ? Color(NSColor.controlBackgroundColor) : Color.clear)
+                                        .shadow(color: isSelected ? Color.black.opacity(0.08) : Color.clear, radius: 1, y: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    Spacer()
+                    
+                    if aiService.isGenerating {
+                        HStack(spacing: 3) {
+                            ProgressView().scaleEffect(0.4)
+                            Text("生成中...")
+                                .font(.system(size: 9))
+                                .foregroundColor(.purple)
+                        }
+                    }
+                }
+                .padding(2)
+                .background(Color.secondary.opacity(0.06))
+                .cornerRadius(5)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .background(.ultraThinMaterial)
             
             Divider()

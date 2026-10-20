@@ -11,6 +11,7 @@ public struct QuickCommandPaletteView: View {
     
     @State private var query: String = ""
     @FocusState private var isInputFocused: Bool
+    @State private var hoveredItemId: String?
     
     private var allSessions: [SessionItem] {
         var list: [SessionItem] = []
@@ -41,147 +42,141 @@ public struct QuickCommandPaletteView: View {
             // Search Bar (Spotlight Style)
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 18))
+                    .font(.system(size: 16))
                     .foregroundColor(.accentColor)
                 
                 TextField("快速跳转会话、切换主题、或输入运维指令 (ESC 退出)...", text: $query)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 15))
+                    .font(.system(size: 14))
                     .focused($isInputFocused)
                     .onSubmit {
+                        HapticFeedbackHelper.shared.performGeneric()
                         handlePrimaryAction()
                     }
                 
                 if !query.isEmpty {
-                    Button(action: { query = "" }) {
+                    Button(action: {
+                        HapticFeedbackHelper.shared.performGeneric()
+                        query = ""
+                    }) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.secondary)
+                            .font(.system(size: 12))
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(14)
-            .background(Color(NSColor.controlBackgroundColor))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.clear)
             
             Divider()
             
             // Results List
             ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
-                    // 1. Open Tabs Section
-                    if !openTabs.isEmpty {
-                        Text("当前已打开的标签页")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 14)
-                            .padding(.top, 8)
-                        
-                        ForEach(openTabs.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }) { tab in
-                            Button(action: {
-                                onSelectTab(tab.id)
-                                onClose()
-                            }) {
-                                HStack(spacing: 10) {
-                                    Image(systemName: tab.session.iconName)
-                                        .foregroundColor(.green)
-                                    Text(tab.title)
-                                        .font(.system(size: 13, weight: .medium))
-                                    Spacer()
-                                    Text("活动标签 • \(tab.uptimeFormatted)")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 6)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    
-                    // 2. Saved Sessions Section
-                    if !filteredSessions.isEmpty {
-                        Text("所有保存的连接与设备")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 14)
-                            .padding(.top, 8)
-                        
-                        ForEach(filteredSessions.prefix(8)) { sess in
-                            Button(action: {
-                                onOpenSession(sess)
-                                onClose()
-                            }) {
-                                HStack(spacing: 10) {
-                                    Image(systemName: sess.iconName)
-                                        .foregroundColor(.accentColor)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(sess.name)
-                                            .font(.system(size: 13, weight: .medium))
-                                        Text("\(sess.protocolType.rawValue) • \(sess.host):\(sess.port)")
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    Spacer()
-                                    Text("回车启动")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 6)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    
-                    // 3. Quick Themes Switcher
-                    if query.localizedCaseInsensitiveContains("theme") || query.localizedCaseInsensitiveContains("主题") || query.isEmpty {
-                        Text("极速切换终端主题")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 14)
-                            .padding(.top, 8)
-                        
-                        ForEach(TerminalTheme.allThemes) { theme in
-                            Button(action: {
-                                themeStore.setTheme(theme)
-                                onClose()
-                            }) {
-                                HStack(spacing: 10) {
-                                    Circle()
-                                        .fill(Color(nsColor: theme.cursorColor))
-                                        .frame(width: 10, height: 10)
-                                    Text(theme.name)
-                                        .font(.system(size: 12))
-                                    Spacer()
-                                    if theme.id == themeStore.currentTheme.id {
-                                        Image(systemName: "checkmark")
-                                            .foregroundColor(.accentColor)
-                                    }
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 4)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    openTabsSection
+                    savedSessionsSection
+                    themesSection
                 }
-                .padding(.bottom, 12)
+                .padding(.bottom, 8)
             }
             .frame(maxHeight: 320)
         }
-        .frame(width: 540)
+        .frame(width: 520)
         .background(.ultraThinMaterial)
-        .cornerRadius(14)
+        .cornerRadius(12)
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.secondary.opacity(0.25), lineWidth: 0.5)
         )
         .shadow(color: .black.opacity(0.35), radius: 20, x: 0, y: 10)
         .onAppear {
             isInputFocused = true
         }
+    }
+    
+    @ViewBuilder
+    private var openTabsSection: some View {
+        if !openTabs.isEmpty {
+            let matches = openTabs.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }
+            if !matches.isEmpty {
+                Text("当前已打开的标签页")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
+                    .padding(.bottom, 2)
+                
+                ForEach(matches) { tab in
+                    PaletteTabRow(
+                        tab: tab,
+                        isHovered: hoveredItemId == tab.id.uuidString,
+                        onSelect: {
+                            HapticFeedbackHelper.shared.performGeneric()
+                            onSelectTab(tab.id)
+                            onClose()
+                        },
+                        onHover: { h in hoveredItemId = h ? tab.id.uuidString : nil }
+                    )
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var savedSessionsSection: some View {
+        if !filteredSessions.isEmpty {
+            Text("所有保存的连接与设备")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                .padding(.bottom, 2)
+            
+            ForEach(Array(filteredSessions.prefix(8))) { sess in
+                PaletteSessionRow(
+                    session: sess,
+                    isHovered: hoveredItemId == sess.id.uuidString,
+                    onSelect: {
+                        HapticFeedbackHelper.shared.performGeneric()
+                        onOpenSession(sess)
+                        onClose()
+                    },
+                    onHover: { h in hoveredItemId = h ? sess.id.uuidString : nil }
+                )
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var themesSection: some View {
+        if query.localizedCaseInsensitiveContains("theme") || query.localizedCaseInsensitiveContains("主题") || query.isEmpty {
+            Text("极速切换终端主题")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                .padding(.bottom, 2)
+            
+            ForEach(TerminalTheme.allThemes, id: \.id) { theme in
+                PaletteThemeRow(
+                    theme: theme,
+                    isCurrent: theme.id == themeStore.currentTheme.id,
+                    isHovered: hoveredItemId == theme.id,
+                    onSelect: {
+                        selectTheme(theme)
+                    },
+                    onHover: { h in hoveredItemId = h ? theme.id : nil }
+                )
+            }
+        }
+    }
+    
+    private func selectTheme(_ theme: TerminalTheme) {
+        HapticFeedbackHelper.shared.performGeneric()
+        themeStore.setTheme(theme)
+        onClose()
     }
     
     private func handlePrimaryAction() {
@@ -195,5 +190,113 @@ public struct QuickCommandPaletteView: View {
             onExecuteCommand(query)
             onClose()
         }
+    }
+}
+
+// MARK: - Palette Row Components
+private struct PaletteTabRow: View {
+    let tab: WorkspaceTab
+    let isHovered: Bool
+    let onSelect: () -> Void
+    let onHover: (Bool) -> Void
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 10) {
+                Image(systemName: tab.session.iconName)
+                    .font(.system(size: 12))
+                    .foregroundColor(.green)
+                Text(tab.title)
+                    .font(.system(size: 12, weight: .medium))
+                Spacer()
+                Text("活动 • \(tab.uptimeFormatted)")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isHovered ? Color.accentColor.opacity(0.15) : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover(perform: onHover)
+        .padding(.horizontal, 6)
+    }
+}
+
+private struct PaletteSessionRow: View {
+    let session: SessionItem
+    let isHovered: Bool
+    let onSelect: () -> Void
+    let onHover: (Bool) -> Void
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 10) {
+                Image(systemName: session.iconName)
+                    .font(.system(size: 12))
+                    .foregroundColor(.accentColor)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(session.name)
+                        .font(.system(size: 12, weight: .medium))
+                    Text("\(session.protocolType.rawValue) • \(session.host):\(session.port)")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Text("回车启动")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isHovered ? Color.accentColor.opacity(0.15) : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover(perform: onHover)
+        .padding(.horizontal, 6)
+    }
+}
+
+private struct PaletteThemeRow: View {
+    let theme: TerminalTheme
+    let isCurrent: Bool
+    let isHovered: Bool
+    let onSelect: () -> Void
+    let onHover: (Bool) -> Void
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(Color(nsColor: theme.cursorColor))
+                    .frame(width: 8, height: 8)
+                Text(theme.name)
+                    .font(.system(size: 12))
+                Spacer()
+                if isCurrent {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.accentColor)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isHovered ? Color.accentColor.opacity(0.15) : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover(perform: onHover)
+        .padding(.horizontal, 6)
     }
 }
