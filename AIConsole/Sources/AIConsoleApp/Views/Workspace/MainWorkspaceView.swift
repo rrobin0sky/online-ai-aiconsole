@@ -153,7 +153,6 @@ public struct MainWorkspaceView: View {
                     .transition(.scale(scale: 0.95).combined(with: .opacity))
                 }
             }
-            .ignoresSafeArea(edges: .top)
             // Native macOS 14+ Inspector Integration
             .inspector(isPresented: $showRightPanel) {
                 VStack(spacing: 0) {
@@ -238,7 +237,7 @@ public struct MainWorkspaceView: View {
                         .help("收起右侧检查器")
                     }
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
+                    .padding(.vertical, 8)
                     .background(.ultraThinMaterial)
                     
                     Divider()
@@ -292,7 +291,6 @@ public struct MainWorkspaceView: View {
                 .inspectorColumnWidth(min: 320, ideal: 380, max: 520)
             }
         }
-        .toolbar(.hidden)
         .background(
             Group {
                 ForEach(1...9, id: \.self) { num in
