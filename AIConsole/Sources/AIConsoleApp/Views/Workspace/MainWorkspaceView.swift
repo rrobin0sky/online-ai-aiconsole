@@ -78,35 +78,9 @@ public struct MainWorkspaceView: View {
             .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
         } detail: {
             ZStack(alignment: .top) {
-                VStack(spacing: 0) {
-                    // Flush Xcode-style TabBar (Height: 32pt)
-                    TabBarView(
-                        tabs: $tabs,
-                        activeTabId: activeTabId,
-                        isBroadcastEnabled: $isBroadcastEnabled,
-                        onSelectTab: { tab in
-                            HapticFeedbackHelper.shared.performGeneric()
-                            switchToTab(tab.id)
-                        },
-                        onCloseTab: { tab in
-                            closeTab(tab)
-                        },
-                        onNewTab: {
-                            openDefaultSession(forceNew: true)
-                        },
-                        onOpenPalette: {
-                            withAnimation(.spring()) {
-                                showQuickPalette.toggle()
-                            }
-                        }
-                    )
-                    
-                    Divider()
-                    
-                    // Main Terminal Canvas Area (Full Bleed Edge-to-Edge)
-                    terminalCanvasView
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
+                // Main Terminal Canvas Area (Full Bleed Edge-to-Edge, flush to top)
+                terminalCanvasView
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
                 // Spotlight Quick Command Palette Overlay
                 if showQuickPalette {
@@ -144,6 +118,31 @@ public struct MainWorkspaceView: View {
                 }
             }
             .toolbar {
+                // Compact Integrated TabBar in Window Titlebar (Yellow Box)
+                ToolbarItem(placement: .principal) {
+                    TabBarView(
+                        tabs: $tabs,
+                        activeTabId: activeTabId,
+                        isBroadcastEnabled: $isBroadcastEnabled,
+                        onSelectTab: { tab in
+                            HapticFeedbackHelper.shared.performGeneric()
+                            switchToTab(tab.id)
+                        },
+                        onCloseTab: { tab in
+                            closeTab(tab)
+                        },
+                        onNewTab: {
+                            openDefaultSession(forceNew: true)
+                        },
+                        onOpenPalette: {
+                            withAnimation(.spring()) {
+                                showQuickPalette.toggle()
+                            }
+                        }
+                    )
+                }
+                
+                // Right Inspector Toggle Button (Blue Box, Apple Standard Trailing)
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -820,8 +819,7 @@ struct TabBarView: View {
                 .padding(.trailing, 8)
             }
         }
-        .frame(height: 32)
-        .background(.ultraThinMaterial)
+        .frame(height: 30)
     }
 }
 
