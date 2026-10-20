@@ -125,150 +125,96 @@ public struct MainWorkspaceView: View {
                 }
             }
             .toolbar {
-                // Integrated Native Session Tabs in Window Titlebar
-                ToolbarItem(placement: .principal) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 4) {
-                            ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
-                                let isActive = (tab.id == activeTabId)
-                                let isHovered = (hoveredTabId == tab.id)
-                                let isRec = recordingManager.isRecording(tabId: tab.id)
-                                
-                                HStack(spacing: 6) {
-                                    // Protocol icon
-                                    Image(systemName: tab.session.iconName)
-                                        .font(.system(size: 11))
-                                        .foregroundColor(protocolColor(tab.session.protocolType))
+                // Integrated Native Session Tabs in Window Titlebar (shown when tabs exist)
+                if !tabs.isEmpty {
+                    ToolbarItem(placement: .principal) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 4) {
+                                ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
+                                    let isActive = (tab.id == activeTabId)
+                                    let isHovered = (hoveredTabId == tab.id)
+                                    let isRec = recordingManager.isRecording(tabId: tab.id)
                                     
-                                    // Title
-                                    Text(tab.title)
-                                        .font(.system(size: 12, weight: isActive ? .medium : .regular))
-                                        .foregroundColor(isActive ? .primary : .secondary)
-                                        .lineLimit(1)
-                                    
-                                    // Pulsing Recording Indicator
-                                    if isRec {
-                                        HStack(spacing: 2) {
-                                            Circle()
-                                                .fill(Color.red)
-                                                .frame(width: 5, height: 5)
-                                            Text("REC")
-                                                .font(.system(size: 8, weight: .heavy, design: .monospaced))
-                                                .foregroundColor(.red)
+                                    HStack(spacing: 6) {
+                                        // Protocol icon
+                                        Image(systemName: tab.session.iconName)
+                                            .font(.system(size: 11))
+                                            .foregroundColor(protocolColor(tab.session.protocolType))
+                                        
+                                        // Title
+                                        Text(tab.title)
+                                            .font(.system(size: 12, weight: isActive ? .medium : .regular))
+                                            .foregroundColor(isActive ? .primary : .secondary)
+                                            .lineLimit(1)
+                                        
+                                        // Pulsing Recording Indicator
+                                        if isRec {
+                                            HStack(spacing: 2) {
+                                                Circle()
+                                                    .fill(Color.red)
+                                                    .frame(width: 5, height: 5)
+                                                Text("REC")
+                                                    .font(.system(size: 8, weight: .heavy, design: .monospaced))
+                                                    .foregroundColor(.red)
+                                            }
+                                            .padding(.horizontal, 3)
+                                            .padding(.vertical, 1)
+                                            .background(Color.red.opacity(0.12))
+                                            .cornerRadius(3)
                                         }
-                                        .padding(.horizontal, 3)
-                                        .padding(.vertical, 1)
-                                        .background(Color.red.opacity(0.12))
-                                        .cornerRadius(3)
+                                        
+                                        // Close button
+                                        Button(action: { closeTab(tab) }) {
+                                            Image(systemName: "xmark")
+                                                .font(.system(size: 8, weight: .bold))
+                                                .foregroundColor(.secondary)
+                                                .frame(width: 14, height: 14)
+                                                .background(Color.secondary.opacity(isHovered || isActive ? 0.12 : 0))
+                                                .clipShape(Circle())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .opacity(isHovered || isActive || tabs.count > 1 ? 1 : 0)
                                     }
-                                    
-                                    // Close button
-                                    Button(action: { closeTab(tab) }) {
-                                        Image(systemName: "xmark")
-                                            .font(.system(size: 8, weight: .bold))
-                                            .foregroundColor(.secondary)
-                                            .frame(width: 14, height: 14)
-                                            .background(Color.secondary.opacity(isHovered || isActive ? 0.12 : 0))
-                                            .clipShape(Circle())
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(isActive ? Color(NSColor.controlBackgroundColor) : (isHovered ? Color.secondary.opacity(0.08) : Color.clear))
+                                            .shadow(color: isActive ? Color.black.opacity(0.06) : Color.clear, radius: 1, y: 1)
+                                    )
+                                    .contentShape(Rectangle())
+                                    .onHover { h in
+                                        hoveredTabId = h ? tab.id : nil
                                     }
-                                    .buttonStyle(.plain)
-                                    .opacity(isHovered || isActive || tabs.count > 1 ? 1 : 0)
-                                }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(isActive ? Color(NSColor.controlBackgroundColor) : (isHovered ? Color.secondary.opacity(0.08) : Color.clear))
-                                        .shadow(color: isActive ? Color.black.opacity(0.06) : Color.clear, radius: 1, y: 1)
-                                )
-                                .contentShape(Rectangle())
-                                .onHover { h in
-                                    hoveredTabId = h ? tab.id : nil
-                                }
-                                .onTapGesture {
-                                    HapticFeedbackHelper.shared.performGeneric()
-                                    switchToTab(tab.id)
+                                    .onTapGesture {
+                                        HapticFeedbackHelper.shared.performGeneric()
+                                        switchToTab(tab.id)
+                                    }
                                 }
                             }
-                            
-                            // New Tab Button right next to tabs
-                            Button(action: { openDefaultSession(forceNew: true) }) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                    .frame(width: 22, height: 22)
-                                    .background(Color.secondary.opacity(0.06))
-                                    .clipShape(RoundedRectangle(cornerRadius: 5))
-                            }
-                            .buttonStyle(.plain)
-                            .help("新建终端标签 (⌘T)")
-                            .padding(.leading, 2)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
                         }
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
+                        .frame(maxWidth: 720)
                     }
-                    .frame(maxWidth: 720)
                 }
                 
-                // Primary Action: Broadcast, Quick Command Palette, Inspector Toggle
+                // Primary Action: Right Inspector Toggle Button (Apple Standard)
                 ToolbarItem(placement: .primaryAction) {
-                    HStack(spacing: 6) {
-                        // Broadcast Multi-Execution Button
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                isBroadcastEnabled.toggle()
-                            }
-                            HapticFeedbackHelper.shared.performAlignment()
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: isBroadcastEnabled ? "antenna.radiowaves.left.and.right" : "dot.radiowaves.up.forward")
-                                    .font(.system(size: 11))
-                                if isBroadcastEnabled {
-                                    Text("广播同步中")
-                                        .font(.system(size: 10, weight: .bold))
-                                }
-                            }
-                            .foregroundColor(isBroadcastEnabled ? .orange : .secondary)
-                            .padding(.horizontal, isBroadcastEnabled ? 8 : 6)
-                            .padding(.vertical, 4)
-                            .background(isBroadcastEnabled ? Color.orange.opacity(0.18) : Color.secondary.opacity(0.06))
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showRightPanel.toggle()
+                        }
+                    }) {
+                        Image(systemName: "sidebar.trailing")
+                            .font(.system(size: 12))
+                            .foregroundColor(showRightPanel ? .accentColor : .secondary)
+                            .frame(width: 26, height: 26)
+                            .background(Color.secondary.opacity(showRightPanel ? 0.12 : 0.06))
                             .clipShape(RoundedRectangle(cornerRadius: 6))
-                        }
-                        .buttonStyle(.plain)
-                        .help(isBroadcastEnabled ? "广播模式已开启：执行命令将同步打入所有已打开的终端" : "开启广播同步模式：将命令同时打入所有终端")
-                        
-                        // Spotlight Quick Command Palette Overlay Button
-                        Button(action: {
-                            withAnimation(.spring()) {
-                                showQuickPalette.toggle()
-                            }
-                        }) {
-                            Image(systemName: "command")
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                                .frame(width: 24, height: 24)
-                                .background(Color.secondary.opacity(0.06))
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                        }
-                        .buttonStyle(.plain)
-                        .help("命令快捷调色板 (⌘P)")
-                        
-                        // Right Inspector Toggle Button (Apple Standard)
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                showRightPanel.toggle()
-                            }
-                        }) {
-                            Image(systemName: "sidebar.trailing")
-                                .font(.system(size: 12))
-                                .foregroundColor(showRightPanel ? .accentColor : .secondary)
-                                .frame(width: 26, height: 26)
-                                .background(Color.secondary.opacity(showRightPanel ? 0.12 : 0.06))
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                        }
-                        .buttonStyle(.plain)
-                        .help("展开/收起右侧辅助面板 (⌥⌘A)")
                     }
+                    .buttonStyle(.plain)
+                    .help("展开/收起右侧辅助面板 (⌥⌘A)")
                 }
             }
             // Native macOS 14+ Inspector Integration
