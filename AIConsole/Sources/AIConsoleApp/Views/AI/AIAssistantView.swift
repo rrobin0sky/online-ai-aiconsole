@@ -27,7 +27,7 @@ public struct AIAssistantView: View {
     public var body: some View {
         VStack(spacing: 0) {
             // Unified Diagnostic & Mode Bar
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 // Session Scope Indicator & Selector
                 HStack(spacing: 6) {
                     Menu {
@@ -187,7 +187,7 @@ public struct AIAssistantView: View {
                 }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
             .background(.ultraThinMaterial)
             
             Divider()
@@ -265,7 +265,7 @@ public struct AIAssistantView: View {
                 .padding(.bottom, 2)
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
             .background(.ultraThinMaterial)
         }
         .frame(minWidth: 320, idealWidth: 360)

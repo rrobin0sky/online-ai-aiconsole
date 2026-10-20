@@ -11,7 +11,7 @@ struct AIConsoleApp: App {
                 .frame(minWidth: 1050, minHeight: 680)
         }
         .windowStyle(.titleBar)
-        .windowToolbarStyle(.unified(showsTitle: false))
+        .windowToolbarStyle(.unifiedCompact)
         .commands {
             // App Core Menu (Settings)
             CommandGroup(replacing: .appSettings) {
@@ -237,6 +237,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: nil,
+            queue: .main
+        ) { notif in
+            if let window = notif.object as? NSWindow {
+                window.isMovableByWindowBackground = true
+                window.titleVisibility = .hidden
+                window.titlebarAppearsTransparent = true
+            }
+        }
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
