@@ -88,6 +88,11 @@ struct AIConsoleApp: App {
             CommandGroup(after: .toolbar) {
                 Divider()
                 
+                Button("展开 / 收起会话侧边栏") {
+                    NotificationCenter.default.post(name: .AIConsoleToggleSidebar, object: nil)
+                }
+                .keyboardShortcut("s", modifiers: [.control, .command])
+                
                 Button("展开 / 收起智能助手") {
                     NotificationCenter.default.post(name: .AIConsoleToggleAIPanel, object: nil)
                 }
@@ -214,6 +219,7 @@ struct AIConsoleApp: App {
 
 // MARK: - Notification Names for App Menus
 extension Notification.Name {
+    static let AIConsoleToggleSidebar = Notification.Name("AIConsoleToggleSidebar")
     static let AIConsoleNewTab = Notification.Name("AIConsoleNewTab")
     static let AIConsoleCloseTab = Notification.Name("AIConsoleCloseTab")
     static let AIConsoleCloseAllTabs = Notification.Name("AIConsoleCloseAllTabs")

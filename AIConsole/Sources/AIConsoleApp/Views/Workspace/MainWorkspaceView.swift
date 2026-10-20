@@ -36,6 +36,9 @@ public struct MainWorkspaceView: View {
     @State private var showNewGroupSheet: Bool = false
     @State private var showQuickPalette: Bool = false
     @State private var isBroadcastEnabled: Bool = false
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var hoveredTabId: UUID?
+    @ObservedObject private var recordingManager = RecordingManager.shared
     
     // Auto-update uptime timer for active sessions
     @State private var now: Date = Date()
@@ -58,7 +61,7 @@ public struct MainWorkspaceView: View {
     }
     
     public var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView(
                 sessionStore: sessionStore,
                 onOpenSession: { session in
@@ -75,48 +78,16 @@ public struct MainWorkspaceView: View {
             .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
         } detail: {
             ZStack(alignment: .top) {
-                VStack(spacing: 0) {
-                    // Top Native-Styled Tab Bar with Reordering & Quick Actions
-                    TabBarView(
-                        tabs: $tabs,
-                        activeTabId: activeTabId,
-                        isBroadcastEnabled: $isBroadcastEnabled,
-                        onSelectTab: { tab in
-                            HapticFeedbackHelper.shared.performGeneric()
-                            switchToTab(tab.id)
-                        },
-                        onCloseTab: { tab in
-                            closeTab(tab)
-                        },
-                        onNewTab: {
-                            openDefaultSession(forceNew: true)
-                        },
-                        onOpenPalette: {
-                            withAnimation(.spring()) {
-                                showQuickPalette.toggle()
-                            }
-                        },
-                        showRightPanel: $showRightPanel,
-                        onToggleRightPanel: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                showRightPanel.toggle()
-                            }
-                        }
+                // Main Terminal Canvas Area
+                terminalCanvasView
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.secondary.opacity(0.15), lineWidth: 0.5)
                     )
-                    
-                    Divider()
-                    
-                    // Main Terminal Canvas Area
-                    terminalCanvasView
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.secondary.opacity(0.15), lineWidth: 0.5)
-                )
-                .padding(.top, 4)
-                .padding(.horizontal, 6)
-                .padding(.bottom, 6)
+                    .padding(.top, 2)
+                    .padding(.horizontal, 6)
+                    .padding(.bottom, 6)
                 
                 // Spotlight Quick Command Palette Overlay
                 if showQuickPalette {
@@ -151,6 +122,153 @@ public struct MainWorkspaceView: View {
                     )
                     .padding(.top, 50)
                     .transition(.scale(scale: 0.95).combined(with: .opacity))
+                }
+            }
+            .toolbar {
+                // Integrated Native Session Tabs in Window Titlebar
+                ToolbarItem(placement: .principal) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 4) {
+                            ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
+                                let isActive = (tab.id == activeTabId)
+                                let isHovered = (hoveredTabId == tab.id)
+                                let isRec = recordingManager.isRecording(tabId: tab.id)
+                                
+                                HStack(spacing: 6) {
+                                    // Protocol icon
+                                    Image(systemName: tab.session.iconName)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(protocolColor(tab.session.protocolType))
+                                    
+                                    // Title
+                                    Text(tab.title)
+                                        .font(.system(size: 12, weight: isActive ? .medium : .regular))
+                                        .foregroundColor(isActive ? .primary : .secondary)
+                                        .lineLimit(1)
+                                    
+                                    // Pulsing Recording Indicator
+                                    if isRec {
+                                        HStack(spacing: 2) {
+                                            Circle()
+                                                .fill(Color.red)
+                                                .frame(width: 5, height: 5)
+                                            Text("REC")
+                                                .font(.system(size: 8, weight: .heavy, design: .monospaced))
+                                                .foregroundColor(.red)
+                                        }
+                                        .padding(.horizontal, 3)
+                                        .padding(.vertical, 1)
+                                        .background(Color.red.opacity(0.12))
+                                        .cornerRadius(3)
+                                    }
+                                    
+                                    // Close button
+                                    Button(action: { closeTab(tab) }) {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 8, weight: .bold))
+                                            .foregroundColor(.secondary)
+                                            .frame(width: 14, height: 14)
+                                            .background(Color.secondary.opacity(isHovered || isActive ? 0.12 : 0))
+                                            .clipShape(Circle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .opacity(isHovered || isActive || tabs.count > 1 ? 1 : 0)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(isActive ? Color(NSColor.controlBackgroundColor) : (isHovered ? Color.secondary.opacity(0.08) : Color.clear))
+                                        .shadow(color: isActive ? Color.black.opacity(0.06) : Color.clear, radius: 1, y: 1)
+                                )
+                                .contentShape(Rectangle())
+                                .onHover { h in
+                                    hoveredTabId = h ? tab.id : nil
+                                }
+                                .onTapGesture {
+                                    HapticFeedbackHelper.shared.performGeneric()
+                                    switchToTab(tab.id)
+                                }
+                            }
+                            
+                            // New Tab Button right next to tabs
+                            Button(action: { openDefaultSession(forceNew: true) }) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 22, height: 22)
+                                    .background(Color.secondary.opacity(0.06))
+                                    .clipShape(RoundedRectangle(cornerRadius: 5))
+                            }
+                            .buttonStyle(.plain)
+                            .help("新建终端标签 (⌘T)")
+                            .padding(.leading, 2)
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                    }
+                    .frame(maxWidth: 720)
+                }
+                
+                // Primary Action: Broadcast, Quick Command Palette, Inspector Toggle
+                ToolbarItem(placement: .primaryAction) {
+                    HStack(spacing: 6) {
+                        // Broadcast Multi-Execution Button
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                isBroadcastEnabled.toggle()
+                            }
+                            HapticFeedbackHelper.shared.performAlignment()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: isBroadcastEnabled ? "antenna.radiowaves.left.and.right" : "dot.radiowaves.up.forward")
+                                    .font(.system(size: 11))
+                                if isBroadcastEnabled {
+                                    Text("广播同步中")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                            }
+                            .foregroundColor(isBroadcastEnabled ? .orange : .secondary)
+                            .padding(.horizontal, isBroadcastEnabled ? 8 : 6)
+                            .padding(.vertical, 4)
+                            .background(isBroadcastEnabled ? Color.orange.opacity(0.18) : Color.secondary.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain)
+                        .help(isBroadcastEnabled ? "广播模式已开启：执行命令将同步打入所有已打开的终端" : "开启广播同步模式：将命令同时打入所有终端")
+                        
+                        // Spotlight Quick Command Palette Overlay Button
+                        Button(action: {
+                            withAnimation(.spring()) {
+                                showQuickPalette.toggle()
+                            }
+                        }) {
+                            Image(systemName: "command")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .frame(width: 24, height: 24)
+                                .background(Color.secondary.opacity(0.06))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain)
+                        .help("命令快捷调色板 (⌘P)")
+                        
+                        // Right Inspector Toggle Button (Apple Standard)
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showRightPanel.toggle()
+                            }
+                        }) {
+                            Image(systemName: "sidebar.trailing")
+                                .font(.system(size: 12))
+                                .foregroundColor(showRightPanel ? .accentColor : .secondary)
+                                .frame(width: 26, height: 26)
+                                .background(Color.secondary.opacity(showRightPanel ? 0.12 : 0.06))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain)
+                        .help("展开/收起右侧辅助面板 (⌥⌘A)")
+                    }
                 }
             }
             // Native macOS 14+ Inspector Integration
@@ -285,7 +403,7 @@ public struct MainWorkspaceView: View {
                     RoundedRectangle(cornerRadius: 10)
                         .stroke(Color.secondary.opacity(0.15), lineWidth: 0.5)
                 )
-                .padding(.top, 4)
+                .padding(.top, 2)
                 .padding(.trailing, 6)
                 .padding(.bottom, 6)
                 .inspectorColumnWidth(min: 320, ideal: 380, max: 520)
@@ -419,6 +537,11 @@ public struct MainWorkspaceView: View {
     
     private func setupMenuDispatcher() {
         let dispatcher = MenuEventDispatcher.shared
+        dispatcher.onToggleSidebar = {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                columnVisibility = (columnVisibility == .all ? .detailOnly : .all)
+            }
+        }
         dispatcher.onNewTab = { openDefaultSession(forceNew: true) }
         dispatcher.onCloseTab = { if let act = activeTab { closeTab(act) } }
         dispatcher.onCloseAllTabs = {
@@ -638,7 +761,19 @@ public struct MainWorkspaceView: View {
         HapticFeedbackHelper.shared.performGeneric()
     }
     
-
+    private func protocolColor(_ proto: SessionProtocol) -> Color {
+        switch proto {
+        case .ssh: return .green
+        case .sftp: return .teal
+        case .scp: return .cyan
+        case .telnet: return .orange
+        case .serial: return .blue
+        case .ble: return .indigo
+        case .local: return .accentColor
+        case .vnc: return .purple
+        case .ftp: return .teal
+        }
+    }
 }
 
 // MARK: - Materialized Native TabBar View with Drag & Drop
@@ -888,6 +1023,7 @@ struct EmptyStateView: View {
 final class MenuEventDispatcher {
     static let shared = MenuEventDispatcher()
     
+    var onToggleSidebar: (() -> Void)?
     var onNewTab: (() -> Void)?
     var onCloseTab: (() -> Void)?
     var onCloseAllTabs: (() -> Void)?
@@ -908,6 +1044,7 @@ final class MenuEventDispatcher {
     
     private init() {
         let nc = NotificationCenter.default
+        nc.addObserver(forName: .AIConsoleToggleSidebar, object: nil, queue: .main) { [weak self] _ in self?.onToggleSidebar?() }
         nc.addObserver(forName: .AIConsoleNewTab, object: nil, queue: .main) { [weak self] _ in self?.onNewTab?() }
         nc.addObserver(forName: .AIConsoleCloseTab, object: nil, queue: .main) { [weak self] _ in self?.onCloseTab?() }
         nc.addObserver(forName: .AIConsoleCloseAllTabs, object: nil, queue: .main) { [weak self] _ in self?.onCloseAllTabs?() }
