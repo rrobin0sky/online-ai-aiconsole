@@ -282,7 +282,7 @@ public final class AIService: ObservableObject {
         return distilled.joined(separator: "\n")
     }
     
-    public func send(userText: String, terminalContext: String? = nil, targetSessionId: UUID? = nil) {
+    public func send(userText: String, terminalContext: String? = nil, isIncremental: Bool = false, targetSessionId: UUID? = nil) {
         guard !userText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let sid = targetSessionId ?? activeSessionId
         ensureSessionExists(for: sid)
@@ -291,7 +291,11 @@ public final class AIService: ObservableObject {
         if let context = terminalContext, !context.isEmpty {
             let redacted = DataRedactor.shared.redact(context)
             let distilled = distillLogs(redacted)
-            promptText += "\n\n【终端报错上下文 (智能提纯)】:\n```\n\(distilled)\n```"
+            if isIncremental {
+                promptText += "\n\n【用户最新执行的终端命令与产生的新输出】:\n```\n\(distilled)\n```"
+            } else {
+                promptText += "\n\n【终端上下文 (智能提纯)】:\n```\n\(distilled)\n```"
+            }
         }
         
         let userMsg = ChatMessage(role: "user", content: promptText)

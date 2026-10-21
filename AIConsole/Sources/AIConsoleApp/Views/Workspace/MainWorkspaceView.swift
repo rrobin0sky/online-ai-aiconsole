@@ -186,7 +186,7 @@ public struct MainWorkspaceView: View {
                                 var nodes: [(title: String, host: String, buffer: String)] = []
                                 for tab in tabs {
                                     if let term = terminalViews[tab.id] {
-                                        let buf = term.extractRecentBuffer(maxLines: 200)
+                                        let buf = term.extractRecentBuffer(maxLines: 2000)
                                         nodes.append((title: tab.title, host: tab.session.host, buffer: buf))
                                     }
                                 }
@@ -379,7 +379,8 @@ public struct MainWorkspaceView: View {
                 showRightPanel = true
                 activeRightTab = .ai
             }
-            let buffer = activeTerminal?.extractRecentBuffer(maxLines: 500) ?? ""
+            let buffer = activeTerminal?.extractRecentBuffer(maxLines: 2000) ?? ""
+            activeTerminal?.markBufferAsSynced()
             aiService.send(
                 userText: "请深度分析我当前终端的历史回滚日志与上下文，排查所有错误、异常与潜在隐患，并给出可行的修复命令和操作方案：",
                 terminalContext: buffer
@@ -393,7 +394,8 @@ public struct MainWorkspaceView: View {
             var combinedContext = "【同网段多设备联合拓扑日志】:\n"
             for (idx, tab) in tabs.enumerated() {
                 if let term = terminalViews[tab.id] {
-                    let buf = term.extractRecentBuffer(maxLines: 200)
+                    let buf = term.extractRecentBuffer(maxLines: 2000)
+                    term.markBufferAsSynced()
                     combinedContext += "\n=== [节点 \(idx + 1)] \(tab.title) (Host: \(tab.session.host)) ===\n\(buf)\n"
                 }
             }

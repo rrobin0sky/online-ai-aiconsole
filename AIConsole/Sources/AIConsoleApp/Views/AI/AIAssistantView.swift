@@ -275,10 +275,13 @@ public struct AIAssistantView: View {
     }
     
     private func diagnoseActiveTerminal() {
-        let buffer = activeTerminalGetter()?.extractRecentBuffer(maxLines: 500) ?? ""
+        let term = activeTerminalGetter()
+        let buffer = term?.extractRecentBuffer(maxLines: 2000) ?? ""
+        term?.markBufferAsSynced()
         aiService.send(
             userText: "请深度分析我当前终端的历史回滚日志与上下文，排查所有错误、异常与潜在隐患，并给出可行的修复命令和操作方案：",
             terminalContext: buffer,
+            isIncremental: false,
             targetSessionId: aiService.activeSessionId
         )
     }
@@ -301,6 +304,7 @@ public struct AIAssistantView: View {
         aiService.send(
             userText: "我当前正在远程管理同一个局域网/业务集群下的多台协同设备。请结合以下各个节点的日志输出，从网络拓扑、上下游服务调用、链路通断与分布式依赖的角度进行联合关联诊断，定位导致异常的源头节点，并给出各节点的针对性修复方案：",
             terminalContext: combinedContext,
+            isIncremental: false,
             targetSessionId: AIService.clusterSessionId
         )
     }
@@ -309,6 +313,21 @@ public struct AIAssistantView: View {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         inputText = ""
+        
+        // Auto-capture incremental new terminal output seamlessly in background
+        if let term = activeTerminalGetter() {
+            let (newOutput, isIncremental) = term.extractIncrementalOrRecentBuffer(maxLines: 1500)
+            if !newOutput.isEmpty {
+                aiService.send(
+                    userText: text,
+                    terminalContext: newOutput,
+                    isIncremental: isIncremental,
+                    targetSessionId: aiService.activeSessionId
+                )
+                return
+            }
+        }
+        
         aiService.send(userText: text, targetSessionId: aiService.activeSessionId)
     }
 }
@@ -317,6 +336,25 @@ struct ChatMessageRow: View {
     let message: ChatMessage
     let onExecuteCommand: (String) -> Void
     let onInsertCommand: (String) -> Void
+    
+    private var parsedContent: (userText: String, attachedContext: String?) {
+        guard message.role == "user" else {
+            return (message.content, nil)
+        }
+        let separators = [
+            "\n\n【用户最新执行的终端命令与产生的新输出】:\n",
+            "\n\n【终端上下文 (智能提纯)】:\n",
+            "\n\n【终端报错上下文 (智能提纯)】:\n"
+        ]
+        for sep in separators {
+            if let range = message.content.range(of: sep) {
+                let userPart = String(message.content[..<range.lowerBound])
+                let contextPart = String(message.content[range.upperBound...])
+                return (userPart, contextPart)
+            }
+        }
+        return (message.content, nil)
+    }
     
     var body: some View {
         VStack(alignment: message.role == "user" ? .trailing : .leading, spacing: 5) {
@@ -342,14 +380,15 @@ struct ChatMessageRow: View {
             }
             
             HStack {
-                if message.role == "user" { Spacer(minLength: 40) }
+                if message.role == "user" { Spacer(minLength: 30) }
                 
-                VStack(alignment: .leading, spacing: 8) {
+                let parsed = parsedContent
+                VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .bottom, spacing: 4) {
-                        Text(message.content.isEmpty && message.isStreaming ? "正在分析终端上下文并生成方案..." : message.content)
+                        Text(parsed.userText.isEmpty && message.isStreaming ? "正在分析终端上下文并生成方案..." : parsed.userText)
                             .font(.system(size: 12.5))
                             .lineSpacing(3)
-                            .foregroundColor(message.content.isEmpty && message.isStreaming ? .secondary : .primary)
+                            .foregroundColor(parsed.userText.isEmpty && message.isStreaming ? .secondary : .primary)
                             .textSelection(.enabled)
                         
                         if message.isStreaming {
@@ -358,6 +397,29 @@ struct ChatMessageRow: View {
                                 .frame(width: 5, height: 5)
                                 .opacity(0.8)
                         }
+                    }
+                    
+                    // Compact Attached Terminal Context preview for user messages
+                    if let ctx = parsed.attachedContext, !ctx.isEmpty {
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "terminal.fill")
+                                    .font(.system(size: 8))
+                                Text("附带终端实时执行输出:")
+                                    .font(.system(size: 9, weight: .medium))
+                            }
+                            .foregroundColor(.secondary.opacity(0.9))
+                            
+                            Text(ctx.replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines))
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.secondary)
+                                .lineLimit(3)
+                                .padding(5)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.black.opacity(0.3))
+                                .cornerRadius(4)
+                        }
+                        .padding(.top, 2)
                     }
                     
                     // Render safe command cards
