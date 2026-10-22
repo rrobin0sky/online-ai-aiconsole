@@ -31,16 +31,151 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
+  <!-- Anti-Flicker BinOS Universal Theme & Lang Init -->
+  <script>
+    (function(){
+      try {
+        var params = new URLSearchParams(window.location.search);
+        var urlTheme = params.get('b0_theme');
+        var saved = urlTheme || localStorage.getItem('b0_theme');
+        var isDark = saved ? (saved === 'dark') : true;
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.classList.remove('light');
+        } else {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.classList.add('light');
+        }
+        var urlLang = params.get('b0_lang');
+        var savedLang = urlLang || localStorage.getItem('b0_lang');
+        var isZh = savedLang ? savedLang.toLowerCase().startsWith('zh') : true;
+        document.documentElement.setAttribute('lang', isZh ? 'zh-CN' : 'en');
+        if (params.get('b0_embedded') === '1' || window.top !== window.self) {
+          document.documentElement.classList.add('b0-embedded');
+        }
+      } catch(e) {}
+    })();
+  </script>
+
   <style>
-    :root {
+    /* Dark Mode Defaults */
+    html.dark {
       color-scheme: dark;
     }
-    
-    body {
+    html.dark body {
       background-color: #000000;
       color: #ededed;
+    }
+    html.dark .spotlight {
+      background: radial-gradient(ellipse 60% 45% at 50% 0%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 70%);
+    }
+    html.dark .feature-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    html.dark .feature-card:hover {
+      background: rgba(255, 255, 255, 0.035);
+      border-color: rgba(255, 255, 255, 0.16);
+      transform: translateY(-2px);
+    }
+    html.dark .window-frame {
+      background: #090a0f;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+    html.dark .text-title {
+      background: linear-gradient(180deg, #FFFFFF 20%, #8E8E93 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    html.dark .header-bar {
+      background: rgba(0, 0, 0, 0.65);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    html.dark .cmd-tip-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Light Mode Overrides */
+    html.light {
+      color-scheme: light;
+    }
+    html.light body {
+      background-color: #f5f5f7;
+      color: #1d1d1f;
+    }
+    html.light .spotlight {
+      background: radial-gradient(ellipse 60% 45% at 50% 0%, rgba(0, 113, 227, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+    }
+    html.light .feature-card {
+      background: #ffffff;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    html.light .feature-card:hover {
+      background: #ffffff;
+      border-color: rgba(0, 113, 227, 0.3);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
+    }
+    html.light .window-frame {
+      background: #ffffff;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    }
+    html.light .text-title {
+      background: linear-gradient(180deg, #1d1d1f 20%, #48484a 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    html.light .header-bar {
+      background: rgba(245, 245, 247, 0.85);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    html.light .cmd-tip-box {
+      background: rgba(0, 0, 0, 0.03);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    html.light .sec-border {
+      border-color: rgba(0, 0, 0, 0.08) !important;
+    }
+    html.light .text-muted-auto {
+      color: #6e6e73 !important;
+    }
+    html.light .text-headline-auto {
+      color: #1d1d1f !important;
+    }
+    html.light .btn-primary-auto {
+      background-color: #0071e3 !important;
+      color: #ffffff !important;
+    }
+    html.light .btn-primary-auto:hover {
+      background-color: #0077ed !important;
+    }
+    html.light .btn-secondary-auto {
+      background-color: rgba(0, 0, 0, 0.05) !important;
+      color: #1d1d1f !important;
+      border-color: rgba(0, 0, 0, 0.1) !important;
+    }
+    html.light .btn-secondary-auto:hover {
+      background-color: rgba(0, 0, 0, 0.08) !important;
+    }
+    html.light .terminal-window-header {
+      background: #f1f2f6;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    html.light .terminal-window-title {
+      color: #6e6e73 !important;
+    }
+    html.light .ai-side-panel {
+      background: #fbfbfd !important;
+    }
+
+    body {
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
 
     /* Minimalist Apple Spotlight */
@@ -51,60 +186,38 @@
       transform: translateX(-50%);
       width: 900px;
       height: 500px;
-      background: radial-gradient(ellipse 60% 45% at 50% 0%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 70%);
       pointer-events: none;
       z-index: 0;
+      transition: opacity 0.3s ease;
     }
 
-    /* Linear/Raycast-style subtle card */
     .feature-card {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.07);
       transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .feature-card:hover {
-      background: rgba(255, 255, 255, 0.035);
-      border-color: rgba(255, 255, 255, 0.16);
-      transform: translateY(-2px);
-    }
-
-    /* Window border */
-    .window-frame {
-      background: #090a0f;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
-    }
-
-    /* Gradient texts */
-    .text-title {
-      background: linear-gradient(180deg, #FFFFFF 20%, #8E8E93 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
     }
   </style>
 </head>
-<body class="selection:bg-white selection:text-black">
+<body class="selection:bg-blue-500 selection:text-white">
 
   <!-- Ambient Light -->
   <div class="spotlight"></div>
 
   <!-- Minimal Nav -->
-  <header class="fixed top-0 left-0 right-0 z-50 bg-black/60 backdrop-blur-xl border-b border-white/[0.06]">
+  <header class="header-bar fixed top-0 left-0 right-0 z-50 backdrop-blur-xl">
     <div class="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
       <a href="#" class="flex items-center gap-2.5">
-        <img src="AppIcon.png" alt="AIConsole" class="w-7 h-7 rounded-lg">
-        <span class="font-bold text-sm tracking-tight text-white">AIConsole</span>
+        <img src="AppIcon.png" alt="AIConsole" class="w-7 h-7 rounded-lg shadow-sm">
+        <span class="font-bold text-sm tracking-tight text-headline-auto text-white">AIConsole</span>
       </a>
 
-      <div class="flex items-center gap-5 text-xs text-[#8e8e93]">
-        <a href="#features" class="hover:text-white transition">核心亮点</a>
-        <a href="#download" class="hover:text-white transition">下载</a>
-        <a href="https://github.com/rrobin0sky/online-ai-aiconsole" target="_blank" class="hover:text-white transition flex items-center gap-1">
+      <div class="flex items-center gap-5 text-xs text-muted-auto text-[#8e8e93]">
+        <a href="#features" class="hover:text-sky-500 dark:hover:text-white transition" data-i18n="nav.features">核心亮点</a>
+        <a href="#download" class="hover:text-sky-500 dark:hover:text-white transition" data-i18n="nav.download">下载</a>
+        <a href="https://github.com/rrobin0sky/online-ai-aiconsole" target="_blank" class="hover:text-sky-500 dark:hover:text-white transition flex items-center gap-1">
           <i data-lucide="github" class="w-3.5 h-3.5"></i>
           <span>GitHub</span>
         </a>
         <a href="https://github.com/rrobin0sky/online-ai-aiconsole/releases/latest/download/AIConsole-macOS.dmg" 
-           class="px-3 py-1.5 rounded-full bg-white text-black font-semibold hover:bg-[#e1e1e6] transition text-xs">
+           class="btn-primary-auto px-3.5 py-1.5 rounded-full bg-white text-black font-semibold hover:bg-[#e1e1e6] transition text-xs shadow-sm" data-i18n="btn.getAppTop">
           下载 macOS 版
         </a>
       </div>
@@ -113,46 +226,59 @@
 
   <!-- Hero Section -->
   <section class="relative pt-24 pb-16 md:pt-28 md:pb-20 max-w-4xl mx-auto px-6 text-center z-10">
+    <div class="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full border border-sky-500/20 bg-sky-500/10 text-sky-500 dark:text-sky-400 text-xs font-semibold">
+      <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+      <span data-i18n="hero.badge">专为 macOS 打造的原生 AI 智能终端</span>
+    </div>
+
+    <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-title max-w-2xl mx-auto leading-tight" data-i18n="hero.title">
+      下一代 macOS 智能终端，由 AI 深度赋能
+    </h1>
+
+    <p class="mt-4 text-xs sm:text-sm text-muted-auto text-[#8e8e93] max-w-xl mx-auto leading-relaxed" data-i18n="hero.subtitle">
+      融合全协议远程连接、AI 错误自动诊断与芯片级 Touch ID 守护。纯原生 Swift 渲染，轻盈灵动。
+    </p>
+
     <!-- Download CTA -->
-    <div class="mt-10 flex flex-col items-center justify-center gap-3">
+    <div class="mt-8 flex flex-col items-center justify-center gap-3">
       <a href="https://github.com/rrobin0sky/online-ai-aiconsole/releases/latest/download/AIConsole-macOS.dmg" 
-         class="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-white text-black font-semibold text-sm hover:bg-[#e8e8ed] transition shadow-[0_0_30px_rgba(255,255,255,0.18)] hover:scale-[1.01]">
+         class="btn-primary-auto inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-white text-black font-semibold text-sm hover:bg-[#e8e8ed] transition shadow-lg hover:scale-[1.01]">
         <i data-lucide="apple" class="w-4 h-4"></i>
-        <span>下载 macOS 版 (.dmg)</span>
-        <span class="text-[11px] text-[#636366] font-mono">v1.2.0</span>
+        <span data-i18n="btn.downloadDmg">下载 macOS 版 (.dmg)</span>
+        <span class="text-[11px] opacity-70 font-mono">v1.2.0</span>
       </a>
 
       <!-- Minimal Gatekeeper Command Tip -->
-      <div class="mt-4 flex items-center gap-2 text-xs text-[#8e8e93] bg-white/[0.03] border border-white/[0.08] px-3.5 py-1.5 rounded-full font-mono">
-        <span class="text-amber-400/90 text-[11px]">如遇无法打开提示:</span>
-        <code class="text-zinc-300 text-[11px]">xattr -cr /Applications/AIConsole.app</code>
-        <button onclick="copyCmd()" id="copyBtn" class="ml-1 text-[11px] text-white hover:text-white bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded transition">
-          复制
+      <div class="cmd-tip-box mt-3 flex items-center gap-2 text-xs text-muted-auto text-[#8e8e93] px-3.5 py-1.5 rounded-full font-mono">
+        <span class="text-amber-500 dark:text-amber-400/90 text-[11px]" data-i18n="tip.gatekeeper">如遇无法打开提示:</span>
+        <code class="text-zinc-700 dark:text-zinc-300 text-[11px]">xattr -cr /Applications/AIConsole.app</code>
+        <button onclick="copyCmd()" id="copyBtn" class="ml-1 text-[11px] text-zinc-700 dark:text-white bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 px-2 py-0.5 rounded transition">
+          <span data-i18n="btn.copy">复制</span>
         </button>
       </div>
     </div>
 
     <!-- Clean macOS Window Preview -->
-    <div class="mt-14 rounded-2xl window-frame p-2.5 text-left">
+    <div class="mt-12 rounded-2xl window-frame p-2.5 text-left">
       <!-- Titlebar -->
-      <div class="flex items-center justify-between px-3.5 py-2 border-b border-white/[0.06]">
+      <div class="terminal-window-header flex items-center justify-between px-3.5 py-2 rounded-t-xl border-b border-black/5 dark:border-white/[0.06]">
         <div class="flex items-center gap-2">
           <div class="w-3 h-3 rounded-full bg-[#ff5f56]/80"></div>
           <div class="w-3 h-3 rounded-full bg-[#ffbd2e]/80"></div>
           <div class="w-3 h-3 rounded-full bg-[#27c93f]/80"></div>
-          <span class="ml-3 text-xs font-mono text-[#636366]">AIConsole — 生产节点</span>
+          <span class="terminal-window-title ml-3 text-xs font-mono text-[#636366]" data-i18n="window.title">AIConsole — 生产节点</span>
         </div>
         <div class="flex items-center gap-2 text-[10px] font-mono">
-          <span class="text-emerald-400">● SSH 已连接</span>
-          <span class="text-zinc-500">•</span>
-          <span class="text-[#8e8e93]">AI Copilot 就绪</span>
+          <span class="text-emerald-500 dark:text-emerald-400" data-i18n="window.status">● SSH 已连接</span>
+          <span class="text-zinc-400 dark:text-zinc-500">•</span>
+          <span class="terminal-window-title text-[#8e8e93]" data-i18n="window.copilot">AI Copilot 就绪</span>
         </div>
       </div>
 
       <!-- Terminal + AI Split -->
-      <div class="grid grid-cols-1 md:grid-cols-12 min-h-[340px] text-xs font-mono">
+      <div class="grid grid-cols-1 md:grid-cols-12 min-h-[340px] text-xs font-mono rounded-b-xl overflow-hidden">
         <!-- Terminal (Left) -->
-        <div class="md:col-span-7 p-5 space-y-2 border-b md:border-b-0 md:border-r border-white/[0.06]">
+        <div class="md:col-span-7 p-5 space-y-2 bg-[#090a0f] text-zinc-100 border-b md:border-b-0 md:border-r border-white/[0.06]">
           <div class="text-[#636366]">Last login: ttys001 (prod-node)</div>
           <div class="text-zinc-300"><span class="text-emerald-400">root@node</span>:<span class="text-cyan-400">~</span>$ systemctl start nginx</div>
           <div class="text-red-400 font-semibold">Job for nginx.service failed.</div>
@@ -161,20 +287,21 @@
         </div>
 
         <!-- AI Assistant (Right) -->
-        <div class="md:col-span-5 p-5 bg-white/[0.01] flex flex-col justify-between font-sans">
+        <div class="ai-side-panel md:col-span-5 p-5 bg-[#0e1017] dark:bg-white/[0.01] flex flex-col justify-between font-sans">
           <div class="space-y-3">
-            <div class="text-xs font-bold text-white flex items-center gap-1.5">
-              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i> AI 根因定位
+            <div class="text-xs font-bold text-headline-auto text-white flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-500 dark:text-purple-400"></i>
+              <span data-i18n="ai.title">AI 根因定位</span>
             </div>
-            <p class="text-xs text-[#8e8e93] leading-relaxed">
+            <p class="text-xs text-muted-auto text-[#8e8e93] leading-relaxed" data-i18n="ai.desc">
               端口 80 被既有旧进程占用，导致 Nginx 端口绑定失败。
             </p>
-            <div class="p-3 rounded-xl bg-black border border-white/[0.08] font-mono text-[11px]">
-              <div class="text-[#8e8e93] mb-1"># 一键修复命令</div>
+            <div class="p-3 rounded-xl bg-black/60 dark:bg-black border border-black/10 dark:border-white/[0.08] font-mono text-[11px]">
+              <div class="text-[#8e8e93] mb-1" data-i18n="ai.commandTitle"># 一键修复命令</div>
               <div class="text-emerald-400">fuser -k 80/tcp && systemctl restart nginx</div>
             </div>
           </div>
-          <div class="text-[10px] text-[#636366] font-mono pt-3 border-t border-white/[0.06]">
+          <div class="text-[10px] text-muted-auto text-[#636366] font-mono pt-3 border-t border-black/5 dark:border-white/[0.06]" data-i18n="ai.security">
             安全隔离 • 零凭证上云
           </div>
         </div>
@@ -185,51 +312,51 @@
   <!-- Exactly 4 Core Highlights Section -->
   <section id="features" class="py-20 max-w-4xl mx-auto px-6 z-10 relative">
     <div class="text-center mb-14">
-      <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">4 个核心特性，重塑运维体验</h2>
+      <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-headline-auto text-white" data-i18n="features.title">4 个核心特性，重塑运维体验</h2>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       
       <!-- 01 AI Copilot -->
       <div class="feature-card rounded-2xl p-6">
-        <div class="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-white mb-4">
+        <div class="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-500 dark:bg-white/[0.06] dark:text-white flex items-center justify-center mb-4">
           <i data-lucide="bot" class="w-4 h-4"></i>
         </div>
-        <h3 class="text-base font-bold text-white mb-2">01. 智能 AI 故障诊断</h3>
-        <p class="text-xs text-[#8e8e93] leading-relaxed">
+        <h3 class="text-base font-bold text-headline-auto text-white mb-2" data-i18n="f1.title">01. 智能 AI 故障诊断</h3>
+        <p class="text-xs text-muted-auto text-[#8e8e93] leading-relaxed" data-i18n="f1.desc">
           自动捕获终端报错堆栈。毫秒级生成根因定位与可一键回填的修复指令卡片，告别复制报错到搜索引擎盲搜。
         </p>
       </div>
 
       <!-- 02 All-in-one Protocols -->
       <div class="feature-card rounded-2xl p-6">
-        <div class="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-white mb-4">
+        <div class="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-500 dark:bg-white/[0.06] dark:text-white flex items-center justify-center mb-4">
           <i data-lucide="network" class="w-4 h-4"></i>
         </div>
-        <h3 class="text-base font-bold text-white mb-2">02. 全协议一站式连接</h3>
-        <p class="text-xs text-[#8e8e93] leading-relaxed">
+        <h3 class="text-base font-bold text-headline-auto text-white mb-2" data-i18n="f2.title">02. 全协议一站式连接</h3>
+        <p class="text-xs text-muted-auto text-[#8e8e93] leading-relaxed" data-i18n="f2.desc">
           集成 SSH 远程服务器、USB 硬件串口直连 (IOKit 识别交换机与板卡)、VNC 远程桌面与 FTP 传输，告别安装繁杂客户端。
         </p>
       </div>
 
       <!-- 03 Hardware Security & Guard -->
       <div class="feature-card rounded-2xl p-6">
-        <div class="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-white mb-4">
+        <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 dark:bg-white/[0.06] dark:text-white flex items-center justify-center mb-4">
           <i data-lucide="fingerprint" class="w-4 h-4"></i>
         </div>
-        <h3 class="text-base font-bold text-white mb-2">03. Touch ID 与高危防护</h3>
-        <p class="text-xs text-[#8e8e93] leading-relaxed">
+        <h3 class="text-base font-bold text-headline-auto text-white mb-2" data-i18n="f3.title">03. Touch ID 与高危防护</h3>
+        <p class="text-xs text-muted-auto text-[#8e8e93] leading-relaxed" data-i18n="f3.desc">
           敏感会话支持 Mac 指纹生物认证；所有凭据由系统 Keychain 本地隔离；内置语义拦截引擎，主动拦截 rm -rf 等破坏性指令。
         </p>
       </div>
 
       <!-- 04 GPU Accelerated & Native -->
       <div class="feature-card rounded-2xl p-6">
-        <div class="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-white mb-4">
+        <div class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 dark:bg-white/[0.06] dark:text-white flex items-center justify-center mb-4">
           <i data-lucide="zap" class="w-4 h-4"></i>
         </div>
-        <h3 class="text-base font-bold text-white mb-2">04. 原生 Swift 与 GPU 渲染</h3>
-        <p class="text-xs text-[#8e8e93] leading-relaxed">
+        <h3 class="text-base font-bold text-headline-auto text-white mb-2" data-i18n="f4.title">04. 原生 Swift 与 GPU 渲染</h3>
+        <p class="text-xs text-muted-auto text-[#8e8e93] leading-relaxed" data-i18n="f4.desc">
           无 Electron 臃肿负担，秒级冷启。纯原生伪终端底层支持，流畅 120Hz 刷新率，自由水平与垂直平铺分屏。
         </p>
       </div>
@@ -238,33 +365,33 @@
   </section>
 
   <!-- Clean Bottom Download Banner -->
-  <section id="download" class="py-20 max-w-4xl mx-auto px-6 text-center border-t border-white/[0.06]">
-    <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">现在下载 AIConsole</h2>
-    <p class="mt-2 text-xs text-[#8e8e93]">专为 macOS Sonoma (14.0) 及更高版本设计 • 仅 3.2MB 纯净体积</p>
+  <section id="download" class="sec-border py-20 max-w-4xl mx-auto px-6 text-center border-t border-black/5 dark:border-white/[0.06]">
+    <h2 class="text-2xl sm:text-3xl font-bold text-headline-auto text-white tracking-tight" data-i18n="dl.title">现在下载 AIConsole</h2>
+    <p class="mt-2 text-xs text-muted-auto text-[#8e8e93]" data-i18n="dl.subtitle">专为 macOS Sonoma (14.0) 及更高版本设计 • 仅 3.2MB 纯净体积</p>
 
     <div class="mt-6 flex items-center justify-center gap-4">
       <a href="https://github.com/rrobin0sky/online-ai-aiconsole/releases/latest/download/AIConsole-macOS.dmg" 
-         class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-black font-semibold text-xs hover:bg-[#e8e8ed] transition">
+         class="btn-primary-auto inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-black font-semibold text-xs hover:bg-[#e8e8ed] transition shadow-md">
         <i data-lucide="download" class="w-3.5 h-3.5"></i>
-        <span>下载 DMG 安装镜像</span>
+        <span data-i18n="dl.btnDmg">下载 DMG 安装镜像</span>
       </a>
 
       <a href="https://github.com/rrobin0sky/online-ai-aiconsole" target="_blank"
-         class="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-medium border border-white/[0.08] transition">
+         class="btn-secondary-auto inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-medium border border-white/[0.08] transition">
         <i data-lucide="github" class="w-3.5 h-3.5"></i>
-        <span>GitHub 源码</span>
+        <span data-i18n="dl.btnGh">GitHub 源码</span>
       </a>
     </div>
   </section>
 
   <!-- Ultra-clean Footer -->
-  <footer class="py-8 border-t border-white/[0.06] text-xs text-[#636366]">
+  <footer class="sec-border py-8 border-t border-black/5 dark:border-white/[0.06] text-xs text-muted-auto text-[#636366]">
     <div class="max-w-4xl mx-auto px-6 flex items-center justify-between">
       <span>AIConsole © 2026. Crafted for Mac.</span>
       <div class="flex items-center gap-5">
-        <a href="https://ppt.bin0sky.tech" target="_blank" class="hover:text-zinc-400 transition">PPT 矩阵</a>
-        <a href="https://icon.bin0sky.tech" target="_blank" class="hover:text-zinc-400 transition">Icon 矩阵</a>
-        <a href="https://github.com/rrobin0sky/online-ai-aiconsole" target="_blank" class="hover:text-zinc-400 transition">GitHub</a>
+        <a href="https://ppt.bin0sky.tech" target="_blank" class="hover:text-sky-500 dark:hover:text-zinc-400 transition">SlideCraft</a>
+        <a href="https://icon.bin0sky.tech" target="_blank" class="hover:text-sky-500 dark:hover:text-zinc-400 transition">ArchIcons</a>
+        <a href="https://github.com/rrobin0sky/online-ai-aiconsole" target="_blank" class="hover:text-sky-500 dark:hover:text-zinc-400 transition">GitHub</a>
       </div>
     </div>
   </footer>
@@ -272,11 +399,121 @@
   <script>
     lucide.createIcons();
 
+    const I18N = {
+      'zh-CN': {
+        'nav.features': '核心亮点',
+        'nav.download': '下载',
+        'btn.getAppTop': '下载 macOS 版',
+        'hero.badge': '专为 macOS 打造的原生 AI 智能终端',
+        'hero.title': '下一代 macOS 智能终端，由 AI 深度赋能',
+        'hero.subtitle': '融合全协议远程连接、AI 错误自动诊断与芯片级 Touch ID 守护。纯原生 Swift 渲染，轻盈灵动。',
+        'btn.downloadDmg': '下载 macOS 版 (.dmg)',
+        'tip.gatekeeper': '如遇无法打开提示:',
+        'btn.copy': '复制',
+        'window.title': 'AIConsole — 生产节点',
+        'window.status': '● SSH 已连接',
+        'window.copilot': 'AI Copilot 就绪',
+        'ai.title': 'AI 根因定位',
+        'ai.desc': '端口 80 被既有旧进程占用，导致 Nginx 端口绑定失败。',
+        'ai.commandTitle': '# 一键修复命令',
+        'ai.security': '安全隔离 • 零凭证上云',
+        'features.title': '4 个核心特性，重塑运维体验',
+        'f1.title': '01. 智能 AI 故障诊断',
+        'f1.desc': '自动捕获终端报错堆栈。毫秒级生成根因定位与可一键回填的修复指令卡片，告别复制报错到搜索引擎盲搜。',
+        'f2.title': '02. 全协议一站式连接',
+        'f2.desc': '集成 SSH 远程服务器、USB 硬件串口直连 (IOKit 识别交换机与板卡)、VNC 远程桌面与 FTP 传输，告别安装繁杂客户端。',
+        'f3.title': '03. Touch ID 与高危防护',
+        'f3.desc': '敏感会话支持 Mac 指纹生物认证；所有凭据由系统 Keychain 本地隔离；内置语义拦截引擎，主动拦截 rm -rf 等破坏性指令。',
+        'f4.title': '04. 原生 Swift 与 GPU 渲染',
+        'f4.desc': '无 Electron 臃肿负担，秒级冷启。纯原生伪终端底层支持，流畅 120Hz 刷新率，自由水平与垂直平铺分屏。',
+        'dl.title': '现在下载 AIConsole',
+        'dl.subtitle': '专为 macOS Sonoma (14.0) 及更高版本设计 • 仅 3.2MB 纯净体积',
+        'dl.btnDmg': '下载 DMG 安装镜像',
+        'dl.btnGh': 'GitHub 源码'
+      },
+      'en': {
+        'nav.features': 'Features',
+        'nav.download': 'Download',
+        'btn.getAppTop': 'Download for Mac',
+        'hero.badge': 'Native AI Terminal Built for macOS',
+        'hero.title': 'Next-Gen macOS Terminal, Powered by AI',
+        'hero.subtitle': 'Unified multi-protocol access, instant AI error diagnostics, and hardware Touch ID security. Pure Swift & Metal rendering.',
+        'btn.downloadDmg': 'Download for macOS (.dmg)',
+        'tip.gatekeeper': 'If Gatekeeper blocked:',
+        'btn.copy': 'Copy',
+        'window.title': 'AIConsole — Production Node',
+        'window.status': '● SSH Connected',
+        'window.copilot': 'AI Copilot Ready',
+        'ai.title': 'AI Root-Cause Diagnosis',
+        'ai.desc': 'Port 80 is occupied by an existing process, causing Nginx bind failure.',
+        'ai.commandTitle': '# Quick Fix Command',
+        'ai.security': 'Hardware Isolated • Zero Cloud Credentials',
+        'features.title': '4 Core Innovations for Modern DevOps',
+        'f1.title': '01. AI Error Diagnostics',
+        'f1.desc': 'Automatically captures error stack traces. Delivers root-cause analysis and executable fix cards in milliseconds.',
+        'f2.title': '02. Multi-Protocol Unified Access',
+        'f2.desc': 'Combines SSH remote servers, USB hardware serial (IOKit switch/board detection), VNC remote desktop, and FTP file manager.',
+        'f3.title': '03. Touch ID & Dangerous Command Guard',
+        'f3.desc': 'Biometric Touch ID protection for sensitive sessions; Apple Keychain encryption; semantic engine intercepts rm -rf risks.',
+        'f4.title': '04. Pure Swift & GPU Rendering',
+        'f4.desc': 'Zero Electron bloat. Instant launch, pure pseudo-terminal core, 120Hz ProMotion fluid rendering, and flexible tiling splits.',
+        'dl.title': 'Download AIConsole Today',
+        'dl.subtitle': 'Crafted for macOS Sonoma (14.0) or later • Pure 3.2MB lightweight binary',
+        'dl.btnDmg': 'Download DMG Installer',
+        'dl.btnGh': 'GitHub Repository'
+      }
+    };
+
+    function applyLang(lang) {
+      const isZh = !lang || lang.toLowerCase().startsWith('zh');
+      const target = isZh ? 'zh-CN' : 'en';
+      const dict = I18N[target] || I18N['en'];
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (dict[key]) el.textContent = dict[key];
+      });
+      document.documentElement.setAttribute('lang', isZh ? 'zh-CN' : 'en');
+    }
+
+    function applyTheme(isDark) {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+      }
+    }
+
+    // Initialize from storage or URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialLang = urlParams.get('b0_lang') || localStorage.getItem('b0_lang') || 'zh-CN';
+    applyLang(initialLang);
+
+    // Sync bridge listeners
+    window.addEventListener('message', function(e) {
+      if (!e.data) return;
+      if (e.data.type === 'B0_THEME_CHANGE') {
+        applyTheme(e.data.theme === 'dark');
+      } else if (e.data.type === 'B0_LANG_CHANGE') {
+        applyLang(e.data.lang);
+      }
+    });
+
+    window.addEventListener('b0-theme-change', function(e) {
+      if (e.detail) applyTheme(e.detail.theme === 'dark');
+    });
+
+    window.addEventListener('b0-lang-change', function(e) {
+      if (e.detail) applyLang(e.detail.lang);
+    });
+
     function copyCmd() {
       navigator.clipboard.writeText("xattr -cr /Applications/AIConsole.app").then(() => {
         const btn = document.getElementById("copyBtn");
-        btn.innerText = "已复制!";
-        setTimeout(() => { btn.innerText = "复制"; }, 2000);
+        const isZh = (document.documentElement.getAttribute('lang') || 'zh').startsWith('zh');
+        btn.innerText = isZh ? "已复制!" : "Copied!";
+        setTimeout(() => { btn.innerText = isZh ? "复制" : "Copy"; }, 2000);
       });
     }
   </script>
