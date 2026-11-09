@@ -60,5 +60,6 @@ public final class AuditStore: ObservableObject {
     private func save() {
         guard let data = try? JSONEncoder().encode(logs) else { return }
         try? data.write(to: fileURL)
+        ConfigManager.enforceSecurePermissions(at: fileURL)
     }
 }

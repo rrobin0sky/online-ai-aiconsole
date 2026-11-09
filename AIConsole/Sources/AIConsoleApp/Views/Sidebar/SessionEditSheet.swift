@@ -844,7 +844,8 @@ private struct FormFieldRow<Content: View>: View {
             Text(label)
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
-                .frame(width: 80, alignment: .trailing)
+                .lineLimit(1)
+                .frame(width: 86, alignment: .trailing)
             
             content
                 .frame(maxWidth: .infinity, alignment: .leading)

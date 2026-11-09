@@ -16,8 +16,8 @@ public enum RightPanelTab: String, CaseIterable, Identifiable {
 }
 
 public struct MainWorkspaceView: View {
-    @StateObject private var sessionStore = SessionStore()
-    @StateObject private var aiService = AIService()
+    @ObservedObject private var sessionStore = SessionStore.shared
+    @ObservedObject private var aiService = AIService.shared
     @StateObject private var historyStore = HistoryStore.shared
     @StateObject private var snippetStore = SnippetStore.shared
     @StateObject private var auditStore = AuditStore.shared
@@ -407,6 +407,21 @@ public struct MainWorkspaceView: View {
         dispatcher.onCancelAI = { aiService.cancelCurrentGeneration() }
         dispatcher.onClearAI = { aiService.messages.removeAll() }
         dispatcher.onOpenSettings = { showSettingsSheet = true }
+        dispatcher.onOpenSpecificSession = { session in
+            openSessionInTab(session, forceNew: false)
+        }
+        dispatcher.onDiagnoseClipboard = { text in
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showRightPanel = true
+                activeRightTab = .ai
+            }
+            aiService.send(
+                userText: "检测到剪贴板错误日志，请进行根因分析并给出极速修复命令：",
+                terminalContext: text,
+                targetSessionId: activeTabId
+            )
+        }
     }
     
     private func launchLocalTerminal() {
@@ -693,6 +708,8 @@ struct TabItemView: View {
                 .font(.system(size: 11, weight: isActive ? .medium : .regular))
                 .foregroundColor(isActive ? .primary : .secondary)
                 .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: 160)
             
             if isRec {
                 HStack(spacing: 2) {
@@ -1027,6 +1044,8 @@ final class MenuEventDispatcher {
     var onCancelAI: (() -> Void)?
     var onClearAI: (() -> Void)?
     var onOpenSettings: (() -> Void)?
+    var onOpenSpecificSession: ((SessionItem) -> Void)?
+    var onDiagnoseClipboard: ((String) -> Void)?
     
     private init() {
         let nc = NotificationCenter.default
@@ -1048,5 +1067,14 @@ final class MenuEventDispatcher {
         nc.addObserver(forName: .AIConsoleCancelAIGeneration, object: nil, queue: .main) { [weak self] _ in self?.onCancelAI?() }
         nc.addObserver(forName: .AIConsoleClearAIChat, object: nil, queue: .main) { [weak self] _ in self?.onClearAI?() }
         nc.addObserver(forName: .AIConsoleOpenSettings, object: nil, queue: .main) { [weak self] _ in self?.onOpenSettings?() }
+        nc.addObserver(forName: .AIConsoleOpenSpecificSession, object: nil, queue: .main) { [weak self] notif in
+            if let session = notif.object as? SessionItem {
+                self?.onOpenSpecificSession?(session)
+            }
+        }
+        nc.addObserver(forName: .AIConsoleQuickDiagnoseClipboard, object: nil, queue: .main) { [weak self] notif in
+            let text = notif.object as? String ?? ""
+            self?.onDiagnoseClipboard?(text)
+        }
     }
 }

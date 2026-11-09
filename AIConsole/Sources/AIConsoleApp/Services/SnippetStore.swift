@@ -29,6 +29,7 @@ public final class SnippetStore: ObservableObject {
     public func save() {
         guard let data = try? JSONEncoder().encode(snippets) else { return }
         try? data.write(to: fileURL)
+        ConfigManager.enforceSecurePermissions(at: fileURL)
     }
     
     public func addSnippet(_ snippet: SnippetItem) {

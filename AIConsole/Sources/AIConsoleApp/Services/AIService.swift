@@ -96,9 +96,46 @@ public struct AISessionState: Identifiable {
 
 @MainActor
 public final class AIService: ObservableObject {
+    public static let shared = AIService()
     public static let clusterSessionId = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     
-    @Published public var config: AIModelConfig = AIModelConfig()
+    // 多大模型预设池支持
+    @Published public var profiles: [AIModelProfile] = []
+    @Published public var activeProfileId: UUID = UUID()
+    
+    public var currentProfile: AIModelProfile {
+        if let p = profiles.first(where: { $0.id == activeProfileId }) {
+            return p
+        }
+        return profiles.first ?? AIModelProfile()
+    }
+    
+    public var config: AIModelConfig {
+        get {
+            let p = currentProfile
+            return AIModelConfig(
+                id: p.id,
+                provider: p.provider,
+                baseURL: p.baseURL,
+                apiKey: p.apiKey,
+                modelName: p.modelName,
+                temperature: p.temperature,
+                maxTokens: p.maxTokens
+            )
+        }
+        set {
+            if let idx = profiles.firstIndex(where: { $0.id == activeProfileId }) {
+                profiles[idx].provider = newValue.provider
+                profiles[idx].baseURL = newValue.baseURL
+                profiles[idx].apiKey = newValue.apiKey
+                profiles[idx].modelName = newValue.modelName
+                profiles[idx].temperature = newValue.temperature
+                profiles[idx].maxTokens = newValue.maxTokens
+                saveProfiles()
+            }
+        }
+    }
+    
     @Published public var sessions: [UUID: AISessionState] = [:]
     @Published public var activeSessionId: UUID = AIService.clusterSessionId
     
@@ -132,7 +169,10 @@ public final class AIService: ObservableObject {
     }
     
     public init() {
-        self.config = AIModelConfig.load()
+        let (loadedProfiles, activeId) = AIProfileStore.load()
+        self.profiles = loadedProfiles
+        self.activeProfileId = activeId
+        
         // Initialize Default Global Cluster Session
         let defaultCluster = AISessionState(
             id: AIService.clusterSessionId,
@@ -146,6 +186,39 @@ public final class AIService: ObservableObject {
         )
         self.sessions[AIService.clusterSessionId] = defaultCluster
         self.activeSessionId = AIService.clusterSessionId
+    }
+    
+    public func selectProfile(id: UUID) {
+        if profiles.contains(where: { $0.id == id }) {
+            activeProfileId = id
+            saveProfiles()
+        }
+    }
+    
+    public func addProfile(_ profile: AIModelProfile) {
+        profiles.append(profile)
+        activeProfileId = profile.id
+        saveProfiles()
+    }
+    
+    public func updateProfile(_ profile: AIModelProfile) {
+        if let idx = profiles.firstIndex(where: { $0.id == profile.id }) {
+            profiles[idx] = profile
+            saveProfiles()
+        }
+    }
+    
+    public func deleteProfile(id: UUID) {
+        guard profiles.count > 1 else { return }
+        profiles.removeAll(where: { $0.id == id })
+        if activeProfileId == id {
+            activeProfileId = profiles.first!.id
+        }
+        saveProfiles()
+    }
+    
+    public func saveProfiles() {
+        AIProfileStore.save(profiles: profiles, activeId: activeProfileId)
     }
     
     public func ensureSessionExists(for tabId: UUID, title: String? = nil) {
@@ -175,9 +248,43 @@ public final class AIService: ObservableObject {
         config.save()
     }
     
+    /// 智能规范化 Base URL 并构造 chat/completions 完整端点
+    public static func resolveChatCompletionsURL(from rawBaseURL: String) -> URL? {
+        var base = rawBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !base.isEmpty else { return nil }
+        
+        while base.hasSuffix("/") {
+            base.removeLast()
+        }
+        
+        // 如果用户已输入包含 chat/completions 的完整路径
+        if base.hasSuffix("/chat/completions") {
+            return URL(string: base)
+        }
+        
+        // 兼容第三方中转站（如 grsai.dakka.com.cn 或 OneAPI/NewAPI 等）通常需要 /v1 前缀
+        if !base.hasSuffix("/v1") && !base.contains("/v1/") {
+            base += "/v1"
+        }
+        
+        return URL(string: "\(base)/chat/completions")
+    }
+    
+    public func testConnection(profile: AIModelProfile) async -> (success: Bool, message: String) {
+        let conf = AIModelConfig(
+            id: profile.id,
+            provider: profile.provider,
+            baseURL: profile.baseURL,
+            apiKey: profile.apiKey,
+            modelName: profile.modelName,
+            temperature: profile.temperature,
+            maxTokens: profile.maxTokens
+        )
+        return await testConnection(candidateConfig: conf)
+    }
+    
     public func testConnection(candidateConfig: AIModelConfig) async -> (success: Bool, message: String) {
-        let endpoint = candidateConfig.baseURL.hasSuffix("/") ? "\(candidateConfig.baseURL)chat/completions" : "\(candidateConfig.baseURL)/chat/completions"
-        guard let url = URL(string: endpoint) else {
+        guard let url = Self.resolveChatCompletionsURL(from: candidateConfig.baseURL) else {
             return (false, "Base URL 格式错误")
         }
         
@@ -187,12 +294,13 @@ public final class AIService: ObservableObject {
         if !candidateConfig.apiKey.isEmpty {
             request.setValue("Bearer \(candidateConfig.apiKey)", forHTTPHeaderField: "Authorization")
         }
-        request.timeoutInterval = 10
+        // Gemini 3.1 Pro / 推理大模型经过中转站到海外上游服务，首包耗时通常在 10~25 秒左右，设为 30 秒以防误判超时
+        request.timeoutInterval = 30
         
         let bodyObj: [String: Any] = [
             "model": candidateConfig.modelName,
             "messages": [["role": "user", "content": "ping"]],
-            "max_tokens": 5
+            "max_tokens": 16
         ]
         
         guard let httpBody = try? JSONSerialization.data(withJSONObject: bodyObj) else {
@@ -202,7 +310,7 @@ public final class AIService: ObservableObject {
         
         let startTime = Date()
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
                 return (false, "服务响应非 HTTP 协议")
             }
@@ -211,8 +319,18 @@ public final class AIService: ObservableObject {
             if httpResponse.statusCode == 200 {
                 return (true, "连接成功 (延时 \(elapsed)ms)")
             } else {
-                return (false, "HTTP \(httpResponse.statusCode) 错误，请检查 API Key 或模型名称")
+                var serverErrorDetail = ""
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    if let errorObj = json["error"] as? [String: Any], let msg = errorObj["message"] as? String {
+                        serverErrorDetail = ": \(msg)"
+                    } else if let message = json["message"] as? String {
+                        serverErrorDetail = ": \(message)"
+                    }
+                }
+                return (false, "HTTP \(httpResponse.statusCode) 错误\(serverErrorDetail)")
             }
+        } catch let err as URLError where err.code == .timedOut {
+            return (false, "连接超时 (超过30秒)。中转站或模型上游响应较慢，请稍后重试或查看中转站日志。")
         } catch {
             return (false, "连接失败: \(error.localizedDescription)")
         }
@@ -336,8 +454,7 @@ public final class AIService: ObservableObject {
     }
     
     private func performStreamingChatRequest(sessionId: UUID, messageId: UUID) async throws {
-        let endpoint = config.baseURL.hasSuffix("/") ? "\(config.baseURL)chat/completions" : "\(config.baseURL)/chat/completions"
-        guard let url = URL(string: endpoint) else {
+        guard let url = Self.resolveChatCompletionsURL(from: config.baseURL) else {
             throw URLError(.badURL)
         }
         
@@ -359,7 +476,8 @@ public final class AIService: ObservableObject {
         ]
         
         let sessionMsgs = sessions[sessionId]?.messages ?? []
-        let history = sessionMsgs.filter { $0.id != messageId }.suffix(6)
+        let keepRounds = max(1, ConfigManager.shared.contextConfig.messagesToKeep)
+        let history = sessionMsgs.filter { $0.id != messageId }.suffix(keepRounds * 2)
         for m in history {
             payloadMessages.append(["role": m.role, "content": m.content])
         }
@@ -380,7 +498,19 @@ public final class AIService: ObservableObject {
         }
         
         if httpResponse.statusCode != 200 {
-            throw NSError(domain: "AIService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "API 状态码异常 (\(httpResponse.statusCode))"])
+            var errorDetail = "API 状态码异常 (\(httpResponse.statusCode))"
+            var iterator = bytes.lines.makeAsyncIterator()
+            if let firstLine = try? await iterator.next(), !firstLine.isEmpty {
+                if let data = firstLine.data(using: .utf8),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let err = json["error"] as? [String: Any],
+                   let msg = err["message"] as? String {
+                    errorDetail += ": \(msg)"
+                } else if firstLine.count < 200 {
+                    errorDetail += ": \(firstLine)"
+                }
+            }
+            throw NSError(domain: "AIService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: errorDetail])
         }
         
         var accumulatedText = ""
@@ -451,6 +581,17 @@ public final class AIService: ObservableObject {
     
     public func evaluateRisk(command: String) -> CommandRiskLevel {
         let lower = command.lowercased()
+        
+        // 1. 动态加载 config.json 中配置的高危模式
+        let customPatterns = ConfigManager.shared.config.security.dangerousPatterns
+        for pat in customPatterns {
+            let p = pat.lowercased().trimmingCharacters(in: .whitespaces)
+            if !p.isEmpty && lower.contains(p) {
+                return .dangerous
+            }
+        }
+        
+        // 2. 内置兜底的高危操作规则
         if lower.contains("rm -rf /") || lower.contains("mkfs") || lower.contains("dd if=") || lower.contains("reboot") || lower.contains("shutdown") || lower.contains("chmod 777 -r /") || lower.contains("erase startup-config") || lower.contains("reload") {
             return .dangerous
         }

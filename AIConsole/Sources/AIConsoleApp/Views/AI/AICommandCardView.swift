@@ -140,24 +140,28 @@ public struct AICommandCardView: View {
                     onInsert(card.command)
                     HapticFeedbackHelper.shared.performGeneric()
                 }) {
-                    Label("填入终端 (不执行)", systemImage: "arrow.right.doc.on.clipboard")
+                    Label("填入终端", systemImage: "arrow.right.doc.on.clipboard")
                         .font(.caption)
+                        .lineLimit(1)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .fixedSize()
                 
                 Spacer()
                 
                 Button(action: {
                     executeFullPipeline()
                 }) {
-                    Label(isAllExecuted ? "全部已执行" : "一键流水线执行", systemImage: isAllExecuted ? "checkmark.circle.fill" : "play.fill")
+                    Label(isAllExecuted ? "已执行" : "全部执行", systemImage: isAllExecuted ? "checkmark.circle.fill" : "play.fill")
                         .font(.caption)
                         .fontWeight(.semibold)
+                        .lineLimit(1)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(riskColor(card.riskLevel))
                 .controlSize(.small)
+                .fixedSize()
                 .disabled(isAllExecuted)
             }
         }

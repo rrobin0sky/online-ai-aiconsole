@@ -61,6 +61,7 @@ public final class SessionStore: ObservableObject {
     public func save() {
         guard let data = try? JSONEncoder().encode(rootItems) else { return }
         try? data.write(to: fileURL)
+        ConfigManager.enforceSecurePermissions(at: fileURL)
     }
     
     public func addSession(_ item: SessionItem, parentGroupId: UUID? = nil) {

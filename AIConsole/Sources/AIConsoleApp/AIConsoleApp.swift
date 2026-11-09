@@ -12,6 +12,11 @@ struct AIConsoleApp: App {
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
+        
+        // 🌟 macOS 系统托盘常驻组件 (Menu Bar Extra)
+        MenuBarExtra("AIConsole", systemImage: "terminal.fill") {
+            MenuBarTrayView()
+        }
         .commands {
             // App Core Menu (Settings)
             CommandGroup(replacing: .appSettings) {
@@ -237,10 +242,121 @@ extension Notification.Name {
     static let AIConsoleCancelAIGeneration = Notification.Name("AIConsoleCancelAIGeneration")
     static let AIConsoleClearAIChat = Notification.Name("AIConsoleClearAIChat")
     static let AIConsoleOpenSettings = Notification.Name("AIConsoleOpenSettings")
+    static let AIConsoleOpenSpecificSession = Notification.Name("AIConsoleOpenSpecificSession")
+    static let AIConsoleQuickDiagnoseClipboard = Notification.Name("AIConsoleQuickDiagnoseClipboard")
+}
+
+// MARK: - 系统托盘常驻菜单视图
+struct MenuBarTrayView: View {
+    @ObservedObject private var aiService: AIService = .shared
+    @ObservedObject private var sessionStore: SessionStore = .shared
+    
+    private var allFlatSessions: [SessionItem] {
+        var result: [SessionItem] = []
+        func collect(_ items: [SessionItem]) {
+            for item in items {
+                if item.isGroup {
+                    if let children = item.children { collect(children) }
+                } else {
+                    result.append(item)
+                }
+            }
+        }
+        collect(sessionStore.rootItems)
+        return result
+    }
+    
+    var body: some View {
+        Section("AI 诊断大模型") {
+            Text("当前模型: \(aiService.currentProfile.name.isEmpty ? aiService.currentProfile.modelName : aiService.currentProfile.name)")
+                .font(.caption)
+            
+            Menu("切换大模型预设") {
+                ForEach(aiService.profiles) { p in
+                    Button(action: {
+                        aiService.selectProfile(id: p.id)
+                    }) {
+                        HStack {
+                            Text(p.name.isEmpty ? p.modelName : p.name)
+                            if p.id == aiService.activeProfileId {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        Divider()
+        
+        Section("服务器快速直连") {
+            if allFlatSessions.isEmpty {
+                Text("暂无保存的服务器")
+            } else {
+                ForEach(allFlatSessions.prefix(8)) { item in
+                    Button(action: {
+                        activateAndOpenSession(item)
+                    }) {
+                        Label(item.name, systemImage: item.iconName)
+                    }
+                }
+            }
+            
+            Button("启动本地终端") {
+                NSApp.activate(ignoringOtherApps: true)
+                NotificationCenter.default.post(name: .AIConsoleNewTab, object: nil)
+            }
+        }
+        
+        Divider()
+        
+        Section("智能运维") {
+            Button("📋 诊断剪贴板报错日志") {
+                diagnoseClipboard()
+            }
+            .keyboardShortcut("d", modifiers: [.option, .shift])
+            
+            Button("🌐 打开集群联合诊断") {
+                NSApp.activate(ignoringOtherApps: true)
+                NotificationCenter.default.post(name: .AIConsoleDiagnoseCluster, object: nil)
+            }
+        }
+        
+        Divider()
+        
+        Button("🚀 显示 AIConsole 主窗口") {
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        
+        Button("偏好设置与模型配置...") {
+            NSApp.activate(ignoringOtherApps: true)
+            NotificationCenter.default.post(name: .AIConsoleOpenSettings, object: nil)
+        }
+        
+        Divider()
+        
+        Button("退出 AIConsole") {
+            NSApp.terminate(nil)
+        }
+    }
+    
+    private func activateAndOpenSession(_ session: SessionItem) {
+        NSApp.activate(ignoringOtherApps: true)
+        NotificationCenter.default.post(name: .AIConsoleOpenSpecificSession, object: session)
+    }
+    
+    private func diagnoseClipboard() {
+        let text = NSPasteboard.general.string(forType: .string) ?? ""
+        NSApp.activate(ignoringOtherApps: true)
+        NotificationCenter.default.post(name: .AIConsoleQuickDiagnoseClipboard, object: text)
+    }
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 确保配置管理器完成平滑迁移与 0600 安全权限初始化
+        _ = ConfigManager.shared
+        
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
     }

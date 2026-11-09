@@ -28,8 +28,9 @@ public struct AIAssistantView: View {
         VStack(spacing: 0) {
             // Unified Diagnostic & Mode Bar (Compact Pro Style)
             VStack(spacing: 6) {
-                // Row 1: Session Selector & One-Click Diagnosis Action
+                // Row 1: 环境上下文栏 (当前会话 + 当前模型)
                 HStack(spacing: 6) {
+                    // 当前会话切换
                     Menu {
                         Button(action: {
                             aiService.activeSessionId = AIService.clusterSessionId
@@ -61,6 +62,8 @@ public struct AIAssistantView: View {
                             Text(aiService.currentSessionTitle)
                                 .font(.system(size: 11, weight: .semibold))
                                 .lineLimit(1)
+                                .truncationMode(.tail)
+                                .frame(maxWidth: 130, alignment: .leading)
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 8))
                                 .foregroundColor(.secondary)
@@ -71,18 +74,89 @@ public struct AIAssistantView: View {
                         .cornerRadius(5)
                     }
                     .menuStyle(.borderlessButton)
-                    .fixedSize()
                     
-                    Text(aiService.config.provider.rawValue)
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Color.secondary.opacity(0.08))
-                        .cornerRadius(3)
+                    Spacer(minLength: 4)
                     
-                    Spacer()
+                    // 🌟 快捷大模型切换下拉胶囊 (Quick Model Switcher)
+                    Menu {
+                        Section("切换模型预设") {
+                            ForEach(aiService.profiles) { p in
+                                Button(action: {
+                                    aiService.selectProfile(id: p.id)
+                                    HapticFeedbackHelper.shared.performGeneric()
+                                }) {
+                                    HStack {
+                                        Text(p.name.isEmpty ? p.modelName : p.name)
+                                        if p.id == aiService.activeProfileId {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Divider()
+                        
+                        Button(action: {
+                            NotificationCenter.default.post(name: .AIConsoleOpenSettings, object: nil)
+                        }) {
+                            Label("管理模型预设...", systemImage: "slider.horizontal.3")
+                        }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "cpu")
+                                .font(.system(size: 9))
+                                .foregroundColor(.purple)
+                            Text(aiService.currentProfile.name.isEmpty ? aiService.currentProfile.modelName : aiService.currentProfile.name)
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .frame(maxWidth: 120, alignment: .leading)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 7))
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.purple.opacity(0.12))
+                        .cornerRadius(4)
+                    }
+                    .menuStyle(.borderlessButton)
+                }
+                
+                // Row 2: 诊断模式选择与核心操作栏
+                HStack(spacing: 6) {
+                    // 诊断模式分段胶囊
+                    HStack(spacing: 2) {
+                        ForEach(AIDiagnoseMode.allCases) { mode in
+                            let isSelected = (aiService.diagnoseMode == mode)
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    aiService.diagnoseMode = mode
+                                }
+                                HapticFeedbackHelper.shared.performGeneric()
+                            }) {
+                                Text(mode.rawValue)
+                                    .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                                    .foregroundColor(isSelected ? .primary : .secondary)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2.5)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(isSelected ? Color(NSColor.controlBackgroundColor) : Color.clear)
+                                            .shadow(color: isSelected ? Color.black.opacity(0.08) : Color.clear, radius: 1, y: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(2)
+                    .background(Color.secondary.opacity(0.06))
+                    .cornerRadius(5)
                     
+                    Spacer(minLength: 4)
+                    
+                    // 诊断动作按钮 (保证单行、不折行、紧凑优雅)
                     let allNodes = allTerminalsGetter()
                     if allNodes.count > 1 {
                         Menu {
@@ -93,15 +167,16 @@ public struct AIAssistantView: View {
                                 Label("仅诊断当前单台节点", systemImage: "display")
                             }
                         } label: {
-                            HStack(spacing: 4) {
+                            HStack(spacing: 3) {
                                 Image(systemName: "sparkles")
                                     .font(.system(size: 10))
                                 Text("诊断集群 (\(allNodes.count))")
                                     .font(.system(size: 10, weight: .semibold))
+                                    .lineLimit(1)
                             }
                             .foregroundColor(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3.5)
                             .background(Color.accentColor)
                             .cornerRadius(5)
                         }
@@ -113,19 +188,21 @@ public struct AIAssistantView: View {
                             HapticFeedbackHelper.shared.performGeneric()
                             diagnoseActiveTerminal()
                         }) {
-                            HStack(spacing: 4) {
+                            HStack(spacing: 3) {
                                 Image(systemName: "sparkles")
                                     .font(.system(size: 10))
                                 Text("一键诊断")
                                     .font(.system(size: 10, weight: .semibold))
+                                    .lineLimit(1)
                             }
                             .foregroundColor(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3.5)
                             .background(Color.accentColor)
                             .cornerRadius(5)
                         }
                         .buttonStyle(.plain)
+                        .fixedSize()
                         .disabled(aiService.isGenerating)
                     }
                     
@@ -134,60 +211,23 @@ public struct AIAssistantView: View {
                             HapticFeedbackHelper.shared.performAlignment()
                             aiService.cancelCurrentGeneration()
                         }) {
-                            HStack(spacing: 3) {
+                            HStack(spacing: 2) {
                                 Image(systemName: "stop.fill")
-                                    .font(.system(size: 8))
+                                    .font(.system(size: 7))
                                 Text("停止")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(.system(size: 9, weight: .medium))
+                                    .lineLimit(1)
                             }
                             .foregroundColor(.red)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 3.5)
                             .background(Color.red.opacity(0.12))
                             .cornerRadius(4)
                         }
                         .buttonStyle(.plain)
+                        .fixedSize()
                     }
                 }
-                
-                // Row 2: Mode Selector Segmented Pills
-                HStack(spacing: 2) {
-                    ForEach(AIDiagnoseMode.allCases) { mode in
-                        let isSelected = (aiService.diagnoseMode == mode)
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                aiService.diagnoseMode = mode
-                            }
-                            HapticFeedbackHelper.shared.performGeneric()
-                        }) {
-                            Text(mode.rawValue)
-                                .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
-                                .foregroundColor(isSelected ? .primary : .secondary)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2.5)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(isSelected ? Color(NSColor.controlBackgroundColor) : Color.clear)
-                                        .shadow(color: isSelected ? Color.black.opacity(0.08) : Color.clear, radius: 1, y: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    
-                    Spacer()
-                    
-                    if aiService.isGenerating {
-                        HStack(spacing: 3) {
-                            ProgressView().scaleEffect(0.4)
-                            Text("生成中...")
-                                .font(.system(size: 9))
-                                .foregroundColor(.purple)
-                        }
-                    }
-                }
-                .padding(2)
-                .background(Color.secondary.opacity(0.06))
-                .cornerRadius(5)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
@@ -456,97 +496,158 @@ struct AIModelSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var aiService: AIService
     
-    @State private var selectedProvider: AIProviderType
-    @State private var baseURL: String
-    @State private var apiKey: String
-    @State private var modelName: String
+    @State private var profiles: [AIModelProfile] = []
+    @State private var selectedId: UUID
+    @State private var activeId: UUID
     @State private var showApiKeyPlain: Bool = false
-    
     @State private var isTesting: Bool = false
     @State private var testResult: (success: Bool, message: String)?
-    @State private var showSavedAlert: Bool = false
     
     init(aiService: AIService) {
         self.aiService = aiService
-        _selectedProvider = State(initialValue: aiService.config.provider)
-        _baseURL = State(initialValue: aiService.config.baseURL)
-        _apiKey = State(initialValue: aiService.config.apiKey)
-        _modelName = State(initialValue: aiService.config.modelName)
+        let list = aiService.profiles.isEmpty ? [AIModelProfile()] : aiService.profiles
+        let currentActive = aiService.activeProfileId
+        _profiles = State(initialValue: list)
+        _selectedId = State(initialValue: currentActive)
+        _activeId = State(initialValue: currentActive)
+    }
+    
+    private var currentBinding: Binding<AIModelProfile> {
+        Binding(
+            get: {
+                if let p = profiles.first(where: { $0.id == selectedId }) {
+                    return p
+                }
+                return profiles.first ?? AIModelProfile()
+            },
+            set: { updated in
+                if let idx = profiles.firstIndex(where: { $0.id == updated.id }) {
+                    profiles[idx] = updated
+                }
+            }
+        )
     }
     
     var body: some View {
         VStack(spacing: 0) {
-            // Sheet Header
+            // Header
             HStack {
-                Label("AI 模型与 API 配置", systemImage: "sparkles")
+                Text("模型配置")
                     .font(.headline)
-                    .foregroundColor(.accentColor)
                 Spacer()
                 Button("关闭") { dismiss() }
                     .buttonStyle(.plain)
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .background(Color(NSColor.controlBackgroundColor))
             
             Divider()
             
-            // Form content
-            Form {
-                Section("服务商与模型选择") {
-                    Picker("模型服务商", selection: $selectedProvider) {
+            // Master-Detail
+            HSplitView {
+                // Left
+                VStack(spacing: 0) {
+                    List(selection: $selectedId) {
+                        ForEach(profiles) { p in
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(p.id == activeId ? Color.green : Color.clear)
+                                    .frame(width: 6, height: 6)
+                                    .overlay(
+                                        Circle().stroke(Color.secondary.opacity(0.3), lineWidth: p.id == activeId ? 0 : 1)
+                                    )
+                                
+                                Text(p.name.isEmpty ? p.modelName : p.name)
+                                    .font(.system(size: 12))
+                                    .lineLimit(1)
+                                
+                                Spacer()
+                            }
+                            .tag(p.id)
+                        }
+                    }
+                    .listStyle(.sidebar)
+                    
+                    Divider()
+                    
+                    HStack(spacing: 4) {
+                        Button(action: addProfile) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 11, weight: .semibold))
+                                .frame(width: 22, height: 22)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: deleteSelected) {
+                            Image(systemName: "minus")
+                                .font(.system(size: 11, weight: .semibold))
+                                .frame(width: 22, height: 22)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(profiles.count <= 1)
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(NSColor.controlBackgroundColor))
+                }
+                .frame(width: 160)
+                
+                // Right Form
+                Form {
+                    TextField("预设名称", text: currentBinding.name)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    Picker("服务商", selection: currentBinding.provider) {
                         ForEach(AIProviderType.allCases) { p in
                             Text(p.rawValue).tag(p)
                         }
                     }
-                    .onChange(of: selectedProvider) { _, newProvider in
-                        baseURL = newProvider.defaultBaseURL
-                        modelName = newProvider.defaultModelName
+                    .onChange(of: currentBinding.wrappedValue.provider) { _, newP in
+                        if currentBinding.wrappedValue.baseURL.isEmpty {
+                            currentBinding.wrappedValue.baseURL = newP.defaultBaseURL
+                        }
+                        if currentBinding.wrappedValue.modelName.isEmpty {
+                            currentBinding.wrappedValue.modelName = newP.defaultModelName
+                        }
                     }
                     
-                    TextField("模型名称 (Model)", text: $modelName)
-                        .textFieldStyle(.roundedBorder)
-                }
-                
-                Section("接口地址与认证密钥 (Keychain 加密保护)") {
-                    TextField("API Base URL", text: $baseURL)
+                    TextField("Base URL", text: currentBinding.baseURL)
                         .textFieldStyle(.roundedBorder)
                     
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("API Key (密钥)")
-                            Spacer()
-                            Button(action: { showApiKeyPlain.toggle() }) {
-                                Image(systemName: showApiKeyPlain ? "eye.slash" : "eye")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        
+                    HStack {
                         if showApiKeyPlain {
-                            TextField("sk-...", text: $apiKey)
+                            TextField("API Key", text: currentBinding.apiKey)
                                 .textFieldStyle(.roundedBorder)
                         } else {
-                            SecureField("sk-...", text: $apiKey)
+                            SecureField("API Key", text: currentBinding.apiKey)
                                 .textFieldStyle(.roundedBorder)
                         }
+                        
+                        Button(action: { showApiKeyPlain.toggle() }) {
+                            Image(systemName: showApiKeyPlain ? "eye.slash" : "eye")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
                     }
-                }
-                
-                Section("连通性验证") {
+                    
+                    TextField("模型", text: currentBinding.modelName)
+                        .textFieldStyle(.roundedBorder)
+                    
                     HStack(spacing: 12) {
-                        Button(action: runConnectionTest) {
+                        Button(action: runTest) {
                             HStack(spacing: 4) {
                                 if isTesting {
                                     ProgressView().scaleEffect(0.6)
-                                } else {
-                                    Image(systemName: "antenna.radiowaves.left.and.right")
                                 }
-                                Text("测试 API 连通性")
+                                Text("测试连接")
                             }
                         }
                         .buttonStyle(.bordered)
-                        .disabled(isTesting || baseURL.isEmpty)
+                        .disabled(isTesting || currentBinding.wrappedValue.baseURL.isEmpty)
                         
                         if let res = testResult {
                             HStack(spacing: 4) {
@@ -555,71 +656,96 @@ struct AIModelSettingsSheet: View {
                                 Text(res.message)
                                     .font(.caption)
                                     .foregroundColor(res.success ? .green : .red)
+                                    .lineLimit(1)
                             }
                         }
+                        
+                        Spacer()
+                        
+                        if currentBinding.wrappedValue.id == activeId {
+                            Text("默认使用中")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Button("设为默认") {
+                                activeId = currentBinding.wrappedValue.id
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
                     }
+                    .padding(.top, 4)
                 }
+                .formStyle(.grouped)
+                .padding(.horizontal, 8)
             }
-            .formStyle(.grouped)
-            .padding(.horizontal)
+            .frame(height: 300)
             
             Divider()
             
-            // Bottom Action Bar
+            // Bottom Bar
             HStack {
-                Text("🔒 API Key 将自动存入系统 Keychain，BaseURL/模型参数自动保存至本地。")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                
                 Spacer()
-                
                 Button("取消") { dismiss() }
                     .buttonStyle(.bordered)
-                
-                Button("保存并应用") {
-                    saveAndApply()
+                Button("保存") {
+                    save()
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
             .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(width: 480, height: 460)
-        .onAppear {
-            // Re-sync with latest stored config
-            self.selectedProvider = aiService.config.provider
-            self.baseURL = aiService.config.baseURL
-            self.apiKey = aiService.config.apiKey
-            self.modelName = aiService.config.modelName
-        }
+        .frame(width: 520, height: 380)
     }
     
-    private func runConnectionTest() {
+    private func addProfile() {
+        let p = AIModelProfile(
+            id: UUID(),
+            name: "新配置",
+            provider: .custom,
+            baseURL: "https://grsai.dakka.com.cn/v1",
+            apiKey: "",
+            modelName: "gemini-3.1-pro"
+        )
+        profiles.append(p)
+        selectedId = p.id
+    }
+    
+    private func deleteSelected() {
+        guard profiles.count > 1 else { return }
+        profiles.removeAll(where: { $0.id == selectedId })
+        if activeId == selectedId {
+            activeId = profiles.first!.id
+        }
+        selectedId = profiles.first!.id
+    }
+    
+    private func runTest() {
         isTesting = true
         testResult = nil
-        let candidate = AIModelConfig(
-            provider: selectedProvider,
-            baseURL: baseURL,
-            apiKey: apiKey,
-            modelName: modelName
-        )
+        let target = currentBinding.wrappedValue
         Task {
-            let res = await aiService.testConnection(candidateConfig: candidate)
+            let res = await aiService.testConnection(profile: target)
             self.testResult = res
             self.isTesting = false
         }
     }
     
-    private func saveAndApply() {
-        var updated = aiService.config
-        updated.provider = selectedProvider
-        updated.baseURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        updated.apiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        updated.modelName = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        aiService.config = updated
-        aiService.saveConfig()
+    private func save() {
+        for i in 0..<profiles.count {
+            profiles[i].baseURL = profiles[i].baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            profiles[i].apiKey = profiles[i].apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            profiles[i].modelName = profiles[i].modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if profiles[i].name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                profiles[i].name = profiles[i].modelName.isEmpty ? "未命名" : profiles[i].modelName
+            }
+        }
+        aiService.profiles = profiles
+        aiService.activeProfileId = activeId
+        aiService.saveProfiles()
     }
 }
 

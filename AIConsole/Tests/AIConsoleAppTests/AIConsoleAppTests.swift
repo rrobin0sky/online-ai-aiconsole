@@ -80,4 +80,31 @@ final class AIConsoleAppTests: XCTestCase {
         let safeEval = service.evaluateRisk(command: "ls -la /var/log")
         XCTAssertEqual(safeEval, .safe)
     }
+    
+    func testConfigManagerPathsAndPermissions() throws {
+        let manager = ConfigManager.shared
+        XCTAssertTrue(ConfigManager.standardDirectoryURL.path.contains("Library/Application Support/AIConsole"))
+        XCTAssertEqual(ConfigManager.standardConfigFileURL.lastPathComponent, "config.json")
+        XCTAssertEqual(ConfigManager.standardContextConfigFileURL.lastPathComponent, "context-config.json")
+        
+        // 验证文件保存与 0600 安全权限
+        manager.saveMainConfig()
+        manager.saveContextConfig()
+        
+        let configPath = ConfigManager.standardConfigFileURL.path
+        if FileManager.default.fileExists(atPath: configPath) {
+            let attrs = try FileManager.default.attributesOfItem(atPath: configPath)
+            if let posix = attrs[.posixPermissions] as? NSNumber {
+                XCTAssertEqual(posix.intValue, 0o600, "config.json 必须设置为 0600 权限以保护敏感凭证")
+            }
+        }
+        
+        let contextPath = ConfigManager.standardContextConfigFileURL.path
+        if FileManager.default.fileExists(atPath: contextPath) {
+            let attrs = try FileManager.default.attributesOfItem(atPath: contextPath)
+            if let posix = attrs[.posixPermissions] as? NSNumber {
+                XCTAssertEqual(posix.intValue, 0o600, "context-config.json 必须设置为 0600 权限")
+            }
+        }
+    }
 }
