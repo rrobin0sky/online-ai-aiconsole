@@ -63,8 +63,9 @@
       color-scheme: dark;
     }
     html.dark body {
-      background-color: #0a0c12;
-      color: #f1f5f9;
+      background-color: #08090A;
+      color: #F7F8F8;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
     }
     * {
       -webkit-font-smoothing: antialiased;
@@ -113,9 +114,9 @@
       transform: translateY(-2px);
     }
     html.dark .window-frame {
-      background: #090a0f;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      background: #111215;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 32px 80px -20px rgba(0, 0, 0, 0.85), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
     }
     html.dark .text-title {
       background: linear-gradient(180deg, #FFFFFF 20%, #8E8E93 100%);
@@ -259,9 +260,9 @@
   </header>
 
   <!-- Hero Section -->
-  <section class="hero-section relative pt-24 pb-16 md:pt-28 md:pb-20 max-w-4xl mx-auto px-6 text-center z-10">
-    <div class="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full border border-sky-500/20 bg-sky-500/10 text-sky-500 dark:text-sky-400 text-xs font-semibold">
-      <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+  <section class="hero-section relative pt-24 pb-16 md:pt-28 md:pb-20 max-w-[1120px] mx-auto px-6 sm:px-10 text-center z-10">
+    <div class="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full border border-white/[0.1] bg-white/[0.04] text-[#B4B8C0] text-xs font-medium">
+      <span class="w-1.5 h-1.5 rounded-full bg-[#5E6AD2]"></span>
       <span data-i18n="hero.badge">专为 macOS 打造的原生 AI 智能终端</span>
     </div>
 
@@ -344,7 +345,7 @@
   </section>
 
   <!-- Exactly 4 Core Highlights Section -->
-  <section id="features" class="py-20 max-w-4xl mx-auto px-6 z-10 relative">
+  <section id="features" class="py-20 max-w-[1120px] mx-auto px-6 sm:px-10 z-10 relative">
     <div class="text-center mb-14">
       <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-headline-auto text-white" data-i18n="features.title">4 个核心特性，重塑运维体验</h2>
     </div>
