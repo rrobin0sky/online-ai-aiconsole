@@ -39,7 +39,13 @@ public struct SessionRecordingView: View {
     
     private var recordedText: String {
         guard let state = currentState else { return "" }
-        return state.recentTranscript.joined(separator: "\n")
+        if state.pendingLine.isEmpty {
+            return state.recentTranscript.joined(separator: "\n")
+        } else if state.recentTranscript.isEmpty {
+            return state.pendingLine
+        } else {
+            return state.recentTranscript.joined(separator: "\n") + "\n" + state.pendingLine
+        }
     }
     
     public var body: some View {
@@ -324,9 +330,14 @@ public struct SessionRecordingView: View {
         var meta: [String: String] = [:]
         if let s = currentSession {
             meta["协议类型"] = s.protocolType.rawValue
-            meta["主机地址"] = "\(s.host):\(s.port)"
+            if s.protocolType == .serial {
+                meta["串口设备"] = s.serialDevicePath ?? "未指定"
+                meta["波特率"] = "\(s.baudRate) bps"
+            } else if s.protocolType != .local {
+                meta["主机地址"] = "\(s.host):\(s.port)"
+            }
         }
-        if let dir = term?.currentWorkingDirectory {
+        if let dir = term?.currentWorkingDirectory, currentSession?.protocolType != .serial {
             meta["当前目录"] = dir
         }
         

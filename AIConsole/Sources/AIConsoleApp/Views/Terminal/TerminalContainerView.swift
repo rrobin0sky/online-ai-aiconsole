@@ -162,8 +162,8 @@ public final class CustomTerminalView: LocalProcessTerminalView {
         }
         
         // 1. Centralized Realtime Crash-Proof Session Recording (RecordingManager)
-        if let tid = self.tabId, !rawText.isEmpty {
-            RecordingManager.shared.appendChunk(tabId: tid, rawChunk: rawText)
+        if let tid = self.tabId, !slice.isEmpty {
+            RecordingManager.shared.appendBytes(tabId: tid, bytes: slice)
         }
         
         // 2. Realtime AI Error & Anomaly Detection (Tab-scoped event routing)

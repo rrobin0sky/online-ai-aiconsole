@@ -11,6 +11,8 @@ public struct ActiveRecordingState: Identifiable {
     public var lineCount: Int
     public var byteCount: Int
     public var recentTranscript: [String]
+    public var pendingLine: String = ""
+    var lineProcessor: TerminalLineStreamProcessor = TerminalLineStreamProcessor()
 }
 
 @MainActor
@@ -90,11 +92,11 @@ public final class RecordingManager: ObservableObject {
                 var header = "====================================================\n"
                 header += " AIConsole 终端实时审计日志 (Crash-Proof Recording)\n"
                 header += " 会话名称: \(sessionName)\n"
-                for (k, v) in initialMetadata {
+                for (k, v) in initialMetadata.sorted(by: { $0.key < $1.key }) {
                     header += " \(k): \(v)\n"
                 }
                 header += " 开启时间: \(headerDf.string(from: Date()))\n"
-                header += " 审计机制: 实时落盘流式写入 (防异常退出数据丢失)\n"
+                header += " 审计机制: 行缓冲实时落盘 (防逐字节碎片与异常退出丢失)\n"
                 header += "====================================================\n\n"
                 
                 if let hData = header.data(using: .utf8) {
@@ -110,7 +112,9 @@ public final class RecordingManager: ObservableObject {
                     startedAt: Date(),
                     lineCount: 0,
                     byteCount: 0,
-                    recentTranscript: []
+                    recentTranscript: [],
+                    pendingLine: "",
+                    lineProcessor: TerminalLineStreamProcessor()
                 )
                 
                 self.activeRecordings[tabId] = state
@@ -146,43 +150,71 @@ public final class RecordingManager: ObservableObject {
         }
     }
     
+    /// Preferred entry point: feeds raw terminal/serial bytes directly so split UTF-8 sequences
+    /// and single-byte serial chunks are assembled into complete lines before timestamping and writing.
+    public func appendBytes(tabId: UUID, bytes: ArraySlice<UInt8>) {
+        guard var state = activeRecordings[tabId], !bytes.isEmpty else { return }
+        let completedLines = state.lineProcessor.processBytes(bytes, now: Date())
+        commitCompletedLines(completedLines, into: &state)
+        state.pendingLine = state.lineProcessor.pendingLineText
+        activeRecordings[tabId] = state
+    }
+    
+    /// String entry point for callers that already have decoded text.
     public func appendChunk(tabId: UUID, rawChunk: String) {
-        guard var state = activeRecordings[tabId] else { return }
-        let cleaned = TerminalTextSanitizer.clean(rawChunk)
-        guard !cleaned.isEmpty else { return }
+        guard var state = activeRecordings[tabId], !rawChunk.isEmpty else { return }
+        let completedLines = state.lineProcessor.processString(rawChunk, now: Date())
+        commitCompletedLines(completedLines, into: &state)
+        state.pendingLine = state.lineProcessor.pendingLineText
+        activeRecordings[tabId] = state
+    }
+    
+    private func commitCompletedLines(_ lines: [TerminalLineStreamProcessor.CompletedLine], into state: inout ActiveRecordingState) {
+        guard !lines.isEmpty else { return }
         
-        var toWrite = cleaned
-        if includeTimestamps {
-            let stamp = "[\(timestampFormatter.string(from: Date()))] "
-            let lines = cleaned.components(separatedBy: "\n")
-            toWrite = lines.map { $0.isEmpty ? "" : "\(stamp)\($0)" }.joined(separator: "\n")
+        var payload = ""
+        var formattedForPreview: [String] = []
+        
+        for line in lines {
+            let formatted: String
+            if includeTimestamps && !line.text.isEmpty {
+                let stamp = "[\(timestampFormatter.string(from: line.timestamp))] "
+                formatted = "\(stamp)\(line.text)"
+            } else {
+                formatted = line.text
+            }
+            payload += formatted + "\n"
+            formattedForPreview.append(formatted)
         }
         
-        if let data = toWrite.data(using: .utf8) {
+        if let data = payload.data(using: .utf8) {
             _ = try? state.fileHandle.seekToEnd()
             try? state.fileHandle.write(contentsOf: data)
             try? state.fileHandle.synchronize()
             state.byteCount += data.count
         }
         
-        let newLines = cleaned.components(separatedBy: "\n")
-        state.lineCount += max(1, newLines.count - 1)
-        state.recentTranscript.append(contentsOf: newLines)
+        state.lineCount += lines.count
+        state.recentTranscript.append(contentsOf: formattedForPreview)
         if state.recentTranscript.count > maxRecentTranscriptLines {
             state.recentTranscript.removeFirst(state.recentTranscript.count - maxRecentTranscriptLines)
         }
-        
-        activeRecordings[tabId] = state
     }
     
     @discardableResult
     public func stopRecording(tabId: UUID) -> URL? {
-        guard let state = activeRecordings.removeValue(forKey: tabId) else { return nil }
+        guard var state = activeRecordings.removeValue(forKey: tabId) else { return nil }
+        
+        // Flush any remaining partial line (e.g., login prompt or shell prompt without trailing newline)
+        if let lastLine = state.lineProcessor.flushPendingLine(now: Date()) {
+            commitCompletedLines([lastLine], into: &state)
+        }
         
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        let footer = "\n\n=== ⏹ 结束会话录制 [\(df.string(from: Date()))] (共写入 \(state.lineCount) 行) ===\n"
+        let footer = "\n=== ⏹ 结束会话录制 [\(df.string(from: Date()))] (共写入 \(state.lineCount) 行) ===\n"
         if let fData = footer.data(using: .utf8) {
+            _ = try? state.fileHandle.seekToEnd()
             try? state.fileHandle.write(contentsOf: fData)
             try? state.fileHandle.synchronize()
         }
